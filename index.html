@@ -115,6 +115,7 @@
     border-radius:3px;
   }
   input[type="search"]:focus{ outline:none; border-color:var(--navy); }
+  .search-help{ margin:5px 0 0; font-size:10.5px; color:var(--ink-soft); }
   .check-row{
     display:flex;
     align-items:center;
@@ -468,8 +469,9 @@
 <div class="layout">
   <div class="sidebar">
     <div class="field-group">
-      <h3>Search titles</h3>
-      <input type="search" id="searchBox" placeholder="e.g. retrieval, alignment, agents…">
+      <h3>Smart search</h3>
+      <input type="search" id="searchBox" placeholder='e.g. "human agent", LLM, Vaswani'>
+      <p class="search-help">Titles, authors, venues and tracks · phrases, abbreviations and typo tolerance</p>
     </div>
     <div class="field-group scrollable">
       <h3>Venue</h3>
@@ -903,12 +905,146 @@ let state = {
 function uniqueSorted(arr){ return Array.from(new Set(arr)).sort(); }
 function normalizeText(value){
   return String(value || '')
-    .normalize('NFKC')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
-    .replace(/[\u2010-\u2015\u2212]/g, '-')
+    .replace(/[\u2010-\u2015\u2212_\/]/g, ' ')
+    .replace(/&/g, ' and ')
+    .replace(/\u03b1/g, ' alpha ')
+    .replace(/\u03b2/g, ' beta ')
+    .replace(/\u03b3/g, ' gamma ')
+    .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
+
+const SEARCH_ALIASES = {
+  ai:['artificial intelligence'],
+  llm:['large language model','large language models'],
+  llms:['large language model','large language models'],
+  nlp:['natural language processing'],
+  rag:['retrieval augmented generation'],
+  xai:['explainable ai','explainable artificial intelligence'],
+  mt:['machine translation'],
+  qa:['question answering'],
+  rl:['reinforcement learning'],
+  ner:['named entity recognition'],
+  asr:['automatic speech recognition'],
+  tts:['text to speech']
+};
+
+function stemToken(token){
+  if(token.length <= 3) return token;
+  if(token.endsWith('ies') && token.length > 4) return token.slice(0,-3) + 'y';
+  if(token.endsWith('ing') && token.length > 5) return token.slice(0,-3).replace(/(.)\1$/, '$1');
+  if(token.endsWith('ed') && token.length > 4) return token.slice(0,-2);
+  if(token.endsWith('es') && token.length > 4) return token.slice(0,-2);
+  if(token.endsWith('s') && !token.endsWith('ss') && token.length > 3) return token.slice(0,-1);
+  return token;
+}
+
+function editDistanceWithin(a, b, limit){
+  if(Math.abs(a.length-b.length) > limit) return limit + 1;
+  let previous = Array.from({length:b.length+1}, (_,i)=>i);
+  for(let i=1; i<=a.length; i++){
+    const current = [i];
+    let rowMin = i;
+    for(let j=1; j<=b.length; j++){
+      const value = Math.min(current[j-1]+1, previous[j]+1, previous[j-1]+(a[i-1]===b[j-1]?0:1));
+      current[j] = value;
+      rowMin = Math.min(rowMin, value);
+    }
+    if(rowMin > limit) return limit + 1;
+    previous = current;
+  }
+  return previous[b.length];
+}
+
+function tokenMatchScore(queryToken, candidateToken){
+  if(queryToken === candidateToken) return 1;
+  if(stemToken(queryToken) === stemToken(candidateToken)) return 0.86;
+  if(queryToken.length === candidateToken.length){
+    const differences = [];
+    for(let i=0; i<queryToken.length; i++){
+      if(queryToken[i] !== candidateToken[i]) differences.push(i);
+    }
+    if(differences.length === 2 && differences[1] === differences[0] + 1 &&
+       queryToken[differences[0]] === candidateToken[differences[1]] &&
+       queryToken[differences[1]] === candidateToken[differences[0]]) return 0.72;
+  }
+  const shorter = Math.min(queryToken.length, candidateToken.length);
+  let shared = 0;
+  while(shared < shorter && queryToken[shared] === candidateToken[shared]) shared++;
+  if(shorter >= 6 && shared >= Math.max(5, Math.floor(shorter * 0.7))) return 0.76;
+  const limit = queryToken.length >= 8 ? 2 : queryToken.length >= 4 ? 1 : 0;
+  return limit && editDistanceWithin(queryToken, candidateToken, limit) <= limit ? 0.68 : 0;
+}
+
+function parseSearchQuery(query){
+  const groups = [];
+  const matcher = /"([^"]+)"|(\S+)/g;
+  let match;
+  const preparedQuery = query.replace(/[\u201c\u201d]/g, '"');
+  while((match = matcher.exec(preparedQuery))){
+    const normalized = normalizeText(match[1] || match[2]);
+    if(!normalized) continue;
+    if(match[1]) groups.push({ alternatives:[normalized], phrase:true });
+    else normalized.split(' ').forEach(token => {
+      groups.push({ alternatives:[token].concat(SEARCH_ALIASES[token] || []), phrase:false });
+    });
+  }
+  return groups;
+}
+
+function buildSearchDocument(p){
+  const makeField = text => {
+    const normalized = normalizeText(text);
+    return { text:normalized, tokens:normalized.split(' ').filter(Boolean) };
+  };
+  return {
+    title:makeField(p.t),
+    author:makeField(p.af || p.a),
+    venue:makeField((VENUE_LABELS[p.v] || p.v) + ' ' + p.v),
+    track:makeField(p.tr)
+  };
+}
+
+function alternativeScore(alternative, field){
+  if(alternative.includes(' ')) return field.text.includes(alternative) ? 1.15 : 0;
+  let best = 0;
+  for(const candidate of field.tokens){
+    best = Math.max(best, tokenMatchScore(alternative, candidate));
+    if(best === 1) break;
+  }
+  return best;
+}
+
+function searchScore(paper, groups, rawQuery){
+  if(!groups.length) return 1;
+  const fields = [
+    [paper._search.title, 10],
+    [paper._search.author, 5],
+    [paper._search.venue, 7],
+    [paper._search.track, 6]
+  ];
+  let total = 0;
+  for(const group of groups){
+    let groupBest = 0;
+    for(const alternative of group.alternatives){
+      for(const [field, weight] of fields){
+        groupBest = Math.max(groupBest, alternativeScore(alternative, field) * weight);
+      }
+    }
+    if(groupBest === 0) return 0;
+    total += groupBest;
+  }
+  const normalizedQuery = normalizeText(rawQuery.replace(/"/g,''));
+  if(normalizedQuery && paper._search.title.text.includes(normalizedQuery)) total += 25;
+  return total;
+}
+
+let currentSearchGroups = [];
+let searchTimer = null;
 let ALL_VENUES = [];
 let ALL_YEARS = [];
 let ALL_TRACKS = [];
@@ -954,13 +1090,16 @@ function renderChecks(containerId, values, field, labelFn){
 }
 
 document.getElementById('searchBox').addEventListener('input', (e)=>{
-  state.q = normalizeText(e.target.value);
+  state.q = e.target.value.trim();
+  currentSearchGroups = parseSearchQuery(state.q);
   state.visibleCount = 60;
-  renderAll();
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(renderAll, 120);
 });
 
 document.getElementById('resetBtn').addEventListener('click', ()=>{
   state = {q:'', venues:new Set(), years:new Set(), tracks:new Set(), keywords:new Set(), keywordMode:'any', visibleCount:60};
+  currentSearchGroups = [];
   document.getElementById('searchBox').value = '';
   document.getElementById('keywordMode').value = 'any';
   document.querySelectorAll('.check-row input').forEach(cb=>cb.checked=false);
@@ -986,7 +1125,10 @@ document.getElementById('keywordMode').addEventListener('change', (e)=>{
 
 function sidebarFilteredPapers(){
   return PAPERS.filter(p=>{
-    if(state.q && !normalizeText(p.t).includes(state.q)) return false;
+    if(state.q){
+      p._searchScore = searchScore(p, currentSearchGroups, state.q);
+      if(!p._searchScore) return false;
+    } else p._searchScore = 0;
     if(state.venues.size && !state.venues.has(p.v)) return false;
     if(state.years.size && !state.years.has(p.y)) return false;
     if(state.tracks.size && !state.tracks.has(p.tr)) return false;
@@ -1005,7 +1147,9 @@ function finalFilteredPapers(){
       ? expressions.every(re => re.test(normalizeText(p.t)))
       : expressions.some(re => re.test(normalizeText(p.t))));
   }
-  results = results.slice().sort((a,b)=> b.y.localeCompare(a.y));
+  results = results.slice().sort((a,b)=> state.q
+    ? (b._searchScore - a._searchScore || b.y.localeCompare(a.y))
+    : b.y.localeCompare(a.y));
   return results;
 }
 
@@ -1134,7 +1278,8 @@ function renderList(){
   const emptyEl = document.getElementById('emptyState');
   const loadMoreBtn = document.getElementById('loadMoreBtn');
 
-  countEl.textContent = results.length.toLocaleString() + ' match' + (results.length===1?'':'es') + ' · latest first';
+  countEl.textContent = results.length.toLocaleString() + ' match' + (results.length===1?'':'es') +
+    (state.q ? ' · relevance ranked' : ' · latest first');
   listEl.innerHTML = '';
 
   if(results.length === 0){
@@ -1199,10 +1344,12 @@ function parseCollectionXML(xmlText){
         authors.push(name);
       });
       const aStr = authors.slice(0,3).join(', ') + (authors.length > 3 ? ' et al.' : '');
+      const allAuthors = authors.join(', ');
       const anthId = collId + '-' + volId + '.' + paper.getAttribute('id');
       records.push({
         t: title,
         a: aStr,
+        af: allAuthors,
         v: venue,
         tr: volId,
         y: year,
@@ -1265,7 +1412,11 @@ async function loadAllPapers(forceRefresh){
     setLoadingState('Loading conference data\u2026 (' + done + '/' + manifest.collections.length + ' venues)', true);
   }));
 
-  PAPERS = all.map((p,i)=>({...p, id:i}));
+  PAPERS = all.map((p,i)=>{
+    const record = {...p, id:i};
+    record._search = buildSearchDocument(record);
+    return record;
+  });
   ALL_VENUES = uniqueSorted(PAPERS.map(p=>p.v));
   ALL_YEARS = uniqueSorted(PAPERS.map(p=>p.y)).sort();
   ALL_TRACKS = uniqueSorted(PAPERS.map(p=>p.tr));
