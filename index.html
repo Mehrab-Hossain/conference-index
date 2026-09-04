@@ -197,7 +197,8 @@
   table.topic-table td.cnt{ text-align:right; font-family:'IBM Plex Mono', monospace; color:var(--navy-deep); width:44px; }
   .active-keyword-banner{
     display:none;
-    align-items:center;
+    align-items:flex-start;
+    flex-wrap:wrap;
     gap:8px;
     background:var(--amber-bg);
     color:var(--amber);
@@ -206,8 +207,36 @@
     font-size:13px;
     margin-bottom:14px;
   }
-  .active-keyword-banner button{
-    margin-left:auto;
+  .keyword-chips{ display:flex; flex-wrap:wrap; gap:6px; flex:1; }
+  .keyword-chip{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    background:#fff;
+    border:1px solid var(--amber);
+    border-radius:12px;
+    padding:2px 8px;
+    color:var(--amber);
+  }
+  .keyword-chip button{
+    border:0;
+    background:none;
+    color:inherit;
+    padding:0;
+    cursor:pointer;
+    font-size:15px;
+    line-height:1;
+  }
+  .keyword-mode{
+    border:1px solid var(--line-strong);
+    background:#fff;
+    border-radius:3px;
+    padding:3px 6px;
+    color:var(--navy);
+    font:inherit;
+    font-size:12px;
+  }
+  .clear-keywords-btn{
     background:none;
     border:1px solid var(--amber);
     color:var(--amber);
@@ -442,8 +471,16 @@
     </div>
 
     <div class="active-keyword-banner" id="keywordBanner">
-      <span id="keywordBannerText"></span>
-      <button id="clearKeywordBtn">Clear</button>
+      <span>Keywords:</span>
+      <div class="keyword-chips" id="keywordChips"></div>
+      <label>
+        Match
+        <select class="keyword-mode" id="keywordMode" aria-label="Keyword matching mode">
+          <option value="any">ANY</option>
+          <option value="all">ALL</option>
+        </select>
+      </label>
+      <button class="clear-keywords-btn" id="clearKeywordBtn">Clear all</button>
     </div>
 
     <div class="results-head">
@@ -755,7 +792,8 @@ let state = {
   venues: new Set(),
   years: new Set(),
   tracks: new Set(),
-  keyword: null,
+  keywords: new Set(),
+  keywordMode: 'any',
   visibleCount: 60
 };
 
@@ -811,8 +849,9 @@ document.getElementById('searchBox').addEventListener('input', (e)=>{
 });
 
 document.getElementById('resetBtn').addEventListener('click', ()=>{
-  state = {q:'', venues:new Set(), years:new Set(), tracks:new Set(), keyword:null, visibleCount:60};
+  state = {q:'', venues:new Set(), years:new Set(), tracks:new Set(), keywords:new Set(), keywordMode:'any', visibleCount:60};
   document.getElementById('searchBox').value = '';
+  document.getElementById('keywordMode').value = 'any';
   document.querySelectorAll('.check-row input').forEach(cb=>cb.checked=false);
   renderAll();
 });
@@ -823,7 +862,13 @@ document.getElementById('loadMoreBtn').addEventListener('click', ()=>{
 });
 
 document.getElementById('clearKeywordBtn').addEventListener('click', ()=>{
-  state.keyword = null;
+  state.keywords.clear();
+  state.visibleCount = 60;
+  renderAll();
+});
+
+document.getElementById('keywordMode').addEventListener('change', (e)=>{
+  state.keywordMode = e.target.value;
   state.visibleCount = 60;
   renderAll();
 });
@@ -840,10 +885,14 @@ function sidebarFilteredPapers(){
 
 function finalFilteredPapers(){
   let results = sidebarFilteredPapers();
-  if(state.keyword){
-    var escaped = state.keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    var re = new RegExp('\\b' + escaped + '\\b', 'i');
-    results = results.filter(p=>re.test(p.t));
+  if(state.keywords.size){
+    const expressions = Array.from(state.keywords).map(word => {
+      const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      return new RegExp('\\b' + escaped + '\\b', 'i');
+    });
+    results = results.filter(p => state.keywordMode === 'all'
+      ? expressions.every(re => re.test(p.t))
+      : expressions.some(re => re.test(p.t)));
   }
   results = results.slice().sort((a,b)=> b.y.localeCompare(a.y));
   return results;
@@ -928,7 +977,7 @@ function renderTopics(){
   const top200 = ranked.slice(0,200);
   top200.forEach(([word, cnt], i)=>{
     const tr = document.createElement('tr');
-    tr.className = 'kw-row' + (state.keyword === word ? ' active' : '');
+    tr.className = 'kw-row' + (state.keywords.has(word) ? ' active' : '');
     tr.innerHTML = '<td class="rank">' + (i+1) + '</td><td>' + escapeHtml(word) + '</td><td class="cnt">' + cnt + '</td>';
     tr.addEventListener('click', ()=> selectKeyword(word));
     tbody.appendChild(tr);
@@ -936,17 +985,32 @@ function renderTopics(){
 }
 
 function selectKeyword(word){
-  state.keyword = (state.keyword === word) ? null : word;
+  if(state.keywords.has(word)) state.keywords.delete(word);
+  else state.keywords.add(word);
   state.visibleCount = 60;
   renderAll();
 }
 
 function renderKeywordBanner(){
   const banner = document.getElementById('keywordBanner');
-  const text = document.getElementById('keywordBannerText');
-  if(state.keyword){
+  const chips = document.getElementById('keywordChips');
+  chips.innerHTML = '';
+  if(state.keywords.size){
     banner.style.display = 'flex';
-    text.textContent = 'Showing papers matching "' + state.keyword + '"';
+    Array.from(state.keywords).forEach(word => {
+      const chip = document.createElement('span');
+      chip.className = 'keyword-chip';
+      const label = document.createElement('span');
+      label.textContent = word;
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.setAttribute('aria-label', 'Remove ' + word);
+      remove.textContent = '\u00d7';
+      remove.addEventListener('click', ()=> selectKeyword(word));
+      chip.appendChild(label);
+      chip.appendChild(remove);
+      chips.appendChild(chip);
+    });
   } else {
     banner.style.display = 'none';
   }
