@@ -4,8 +4,8 @@ on:
   schedule:
     # Once a day at 06:00 UTC. Change the cron expression to run more
     # or less often -- the dashboard itself still fetches live data on
-    # every page view regardless of this schedule; this job only keeps
-    # the *list* of tracked venues/years current.
+    # every page view regardless of this schedule. This job refreshes both
+    # the paper collection list and the official conference-information feed.
     - cron: '0 6 * * *'
   workflow_dispatch: {}  # lets you trigger it manually from the Actions tab
 
@@ -23,21 +23,21 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        run: pip install requests
+        run: pip install requests beautifulsoup4
 
       - name: Refresh manifest.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python scripts/update_manifest.py
 
-      - name: Commit changes if manifest.json changed
+      - name: Commit changes if generated data changed
         run: |
-          if git diff --quiet manifest.json; then
-            echo "No changes to manifest.json"
+          if git diff --quiet manifest.json conference-info.json; then
+            echo "No generated-data changes"
           else
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add manifest.json
-            git commit -m "Auto-refresh venue manifest"
+            git add manifest.json conference-info.json
+            git commit -m "Auto-refresh conference data"
             git push
           fi
