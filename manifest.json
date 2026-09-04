@@ -1,5 +1,17 @@
 {
   "collections": [
+    "2017.iwslt",
+    "2018.acl",
+    "2018.coling",
+    "2018.emnlp",
+    "2018.iwslt",
+    "2018.naacl",
+    "2018.wmt",
+    "2019.acl",
+    "2019.ijcnlp",
+    "2019.iwslt",
+    "2019.naacl",
+    "2019.wmt",
     "2020.acl",
     "2020.coling",
     "2020.conll",
@@ -84,7 +96,7 @@
     "2026.starsem",
     "2026.tacl"
   ],
-  "generated_at": "2026-09-04T05:23:07.950791+00:00",
+  "generated_at": "2026-09-04T05:37:23.949285+00:00",
   "source": "https://github.com/acl-org/acl-anthology/tree/master/data/xml",
   "tracked_venue_prefixes": [
     "acl",
@@ -103,5 +115,5 @@
     "arabicnlp",
     "ijcnlp"
   ],
-  "min_year": 2020
+  "min_year": 2017
 }
