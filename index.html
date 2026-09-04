@@ -357,6 +357,20 @@
     padding-top:10px;
     margin-top:4px;
   }
+  .official-status{
+    display:inline-block;
+    font-size:10.5px;
+    color:#285A35;
+    background:#E8F0E9;
+    border:1px solid #B8CFBD;
+    border-radius:12px;
+    padding:2px 8px;
+    margin:3px 0 12px;
+  }
+  .official-section-title{ font-size:12px; font-weight:600; margin:14px 0 6px; }
+  .guideline-list{ margin:0 0 12px; padding-left:20px; font-size:12.5px; }
+  .guideline-list li{ margin-bottom:5px; }
+  .official-links{ display:flex; flex-wrap:wrap; gap:12px; font-size:12px; margin:10px 0; }
   .analytics-section{
     border-top:1px solid var(--line);
     margin-top:16px;
@@ -658,6 +672,8 @@ const DEFAULT_VENUE_NOTE = {
   asOf: 'Sep 2026'
 };
 
+let OFFICIAL_CONFERENCE_INFO = {};
+
 function topicCounts(papers){
   const counts = {};
   papers.forEach(p => {
@@ -726,32 +742,48 @@ function venueAnalyticsHtml(venueCode){
 function showVenueInfo(venueCode){
   const panel = document.getElementById('venueInfoPanel');
   const content = document.getElementById('venueInfoContent');
-  const info = VENUE_INFO[venueCode];
+  const info = OFFICIAL_CONFERENCE_INFO[venueCode];
   const label = VENUE_LABELS[venueCode] || venueCode.toUpperCase();
 
   let html = '';
   if(info){
-    html += '<h4>' + escapeHtml(info.name) + '</h4>';
-    html += '<p class="sub">' + escapeHtml(info.where) + '</p>';
-    if(info.note){
-      html += '<p style="font-size:13px; margin:0 0 12px;">' + escapeHtml(info.note) + '</p>';
-    }
-    if(info.system){
-      html += '<p style="font-size:13px; margin:0 0 12px;"><strong>Submission system:</strong> ' + escapeHtml(info.system) + '</p>';
-    }
+    html += '<h4>' + escapeHtml(info.edition || info.name || label) + '</h4>';
+    html += '<span class="official-status">' + escapeHtml(info.source_status || 'official source') + '</span>';
+    if(info.status_note) html += '<p class="sub">' + escapeHtml(info.status_note) + '</p>';
+
+    html += '<p class="official-section-title">Important dates</p>';
     if(info.dates && info.dates.length){
-      html += '<table class="dates-table">' + info.dates.map(d=>'<tr><td>' + escapeHtml(d[0]) + '</td><td>' + escapeHtml(d[1]) + '</td></tr>').join('') + '</table>';
+      html += '<table class="dates-table">' + info.dates.map(d=>{
+        const parts = d.split(/\s+[\u2014\u2013]\s+|:\s+(?=[A-Z][a-z]+\s+\d)/, 2);
+        return '<tr><td>' + escapeHtml(parts[0]) + '</td><td>' + escapeHtml(parts[1] || '') + '</td></tr>';
+      }).join('') + '</table>';
+    } else {
+      html += '<p class="sub">No current submission dates were found on the official source. They may not have been announced yet.</p>';
     }
+
+    html += '<p class="official-section-title">Official submission topics</p>';
     if(info.topics && info.topics.length){
-      html += '<p style="font-size:12px; color:var(--ink-soft); margin:0 0 6px;">Submission topics (from the most recent published call for papers):</p>';
       html += '<div class="topics-chips">' + info.topics.map(t=>'<span class="topic-chip">' + escapeHtml(t) + '</span>').join('') + '</div>';
+    } else {
+      html += '<p class="sub">The official source does not currently publish a structured topic list.</p>';
     }
-    html += '<p class="source-note">As of ' + escapeHtml(info.asOf) + '.' + (info.url ? ' <a href="' + info.url + '" target="_blank" rel="noopener">Official call for papers &rarr;</a>' : '') + ' Deadlines and topics change year to year \u2014 verify on the official site before submitting.</p>';
+
+    html += '<p class="official-section-title">Submission guidelines</p>';
+    if(info.guidelines && info.guidelines.length){
+      html += '<ul class="guideline-list">' + info.guidelines.map(g=>'<li>' + escapeHtml(g) + '</li>').join('') + '</ul>';
+    } else {
+      html += '<p class="sub">Open the official guidelines for the complete and authoritative requirements.</p>';
+    }
+    html += '<div class="official-links">' +
+      (info.source_url ? '<a href="' + escapeHtml(info.source_url) + '" target="_blank" rel="noopener">Official CFP/source &rarr;</a>' : '') +
+      (info.guidelines_url ? '<a href="' + escapeHtml(info.guidelines_url) + '" target="_blank" rel="noopener">Full guidelines &rarr;</a>' : '') +
+      (info.homepage_url ? '<a href="' + escapeHtml(info.homepage_url) + '" target="_blank" rel="noopener">Conference website &rarr;</a>' : '') +
+      '</div>';
+    html += '<p class="source-note">Official page checked ' + escapeHtml(info.checked_at ? new Date(info.checked_at).toLocaleString() : 'date unavailable') + '. Always confirm critical deadlines on the linked official page.</p>';
   } else {
     html += '<h4>' + escapeHtml(label) + '</h4>';
-    html += '<p class="sub">' + escapeHtml(DEFAULT_VENUE_NOTE.where) + '</p>';
-    html += '<p style="font-size:13px; margin:0 0 12px;">' + escapeHtml(DEFAULT_VENUE_NOTE.system) + '</p>';
-    html += '<p class="source-note">As of ' + escapeHtml(DEFAULT_VENUE_NOTE.asOf) + '. <a href="https://aclanthology.org/venues/' + encodeURIComponent(venueCode) + '/" target="_blank" rel="noopener">Browse this venue on the ACL Anthology &rarr;</a></p>';
+    html += '<p class="sub">Official conference information has not loaded or is not configured for this venue.</p>';
+    html += '<p class="source-note"><a href="https://aclanthology.org/venues/' + encodeURIComponent(venueCode) + '/" target="_blank" rel="noopener">Browse publications on the ACL Anthology &rarr;</a></p>';
   }
 
   html += venueAnalyticsHtml(venueCode);
@@ -1319,6 +1351,13 @@ async function fetchManifest(){
   return res.json();
 }
 
+async function fetchConferenceInfo(){
+  const res = await fetch('./conference-info.json', { cache:'no-store' });
+  if(!res.ok) throw new Error('conference info fetch failed: ' + res.status);
+  const data = await res.json();
+  return data.venues || {};
+}
+
 function parseCollectionXML(xmlText){
   const doc = new DOMParser().parseFromString(xmlText, 'text/xml');
   const root = doc.documentElement;
@@ -1392,7 +1431,15 @@ async function loadAllPapers(forceRefresh){
   document.getElementById('refreshBtn').disabled = true;
   let manifest;
   try{
-    manifest = await fetchManifest();
+    const loaded = await Promise.all([
+      fetchManifest(),
+      fetchConferenceInfo().catch(error => {
+        console.warn('Official conference information unavailable', error);
+        return {};
+      })
+    ]);
+    manifest = loaded[0];
+    OFFICIAL_CONFERENCE_INFO = loaded[1];
   } catch(e){
     setLoadingState('Could not load the venue manifest. Check your connection and reload.', true);
     document.getElementById('refreshBtn').disabled = false;
