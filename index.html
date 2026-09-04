@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Conference Index — NLP/ML venues</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FAF9F6;
+    --ink:#16181B;
+    --ink-soft:#4A4D52;
+    --line:#DCDAD1;
+    --line-strong:#B8B5A8;
+    --navy:#233B5C;
+    --navy-deep:#152538;
+    --amber:#A9761E;
+    --amber-bg:#F4EBD8;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',-apple-system,sans-serif;
+    font-size:14px;
+    line-height:1.5;
+  }
+  a{ color:var(--navy); }
+  .masthead{
+    border-bottom:2px solid var(--ink);
+    padding:28px 32px 18px;
+  }
+  .masthead h1{
+    font-family:'Source Serif 4', Georgia, serif;
+    font-weight:600;
+    font-size:30px;
+    margin:0 0 4px;
+    letter-spacing:-0.01em;
+  }
+  .masthead p{
+    margin:0;
+    color:var(--ink-soft);
+    font-size:13.5px;
+  }
+  .stats-row{
+    display:flex;
+    gap:28px;
+    margin-top:14px;
+    flex-wrap:wrap;
+  }
+  .stat{ font-family:'IBM Plex Mono', monospace; }
+  .stat .n{ font-size:20px; font-weight:500; color:var(--navy-deep); }
+  .stat .l{ font-size:11px; color:var(--ink-soft); text-transform:lowercase; }
+  .freshness-row{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    margin-top:10px;
+  }
+  .last-updated{
+    font-size:11.5px;
+    color:var(--ink-soft);
+    font-family:'IBM Plex Mono', monospace;
+  }
+  .refresh-btn{
+    font-family:inherit;
+    font-size:12px;
+    padding:3px 10px;
+    border:1px solid var(--line-strong);
+    background:#fff;
+    border-radius:3px;
+    cursor:pointer;
+    color:var(--navy);
+  }
+  .refresh-btn:hover{ border-color:var(--navy); }
+  .refresh-btn:disabled{ opacity:0.5; cursor:default; }
+  .loading-banner{
+    margin-top:10px;
+    font-size:12.5px;
+    color:var(--amber);
+    background:var(--amber-bg);
+    padding:6px 10px;
+    border-radius:3px;
+  }
+  .layout{
+    display:grid;
+    grid-template-columns:260px 1fr;
+    gap:0;
+    max-width:1220px;
+    margin:0 auto;
+  }
+  .sidebar{
+    padding:24px 20px;
+    border-right:1px solid var(--line);
+    min-height:600px;
+  }
+  .sidebar h3{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+    color:var(--ink-soft);
+    margin:0 0 10px;
+    font-weight:600;
+  }
+  .field-group{ margin-bottom:22px; }
+  .field-group.scrollable{ max-height:220px; overflow-y:auto; padding-right:4px; }
+  input[type="search"]{
+    width:100%;
+    padding:8px 10px;
+    border:1px solid var(--line-strong);
+    background:#fff;
+    font-family:inherit;
+    font-size:13.5px;
+    border-radius:3px;
+  }
+  input[type="search"]:focus{ outline:none; border-color:var(--navy); }
+  .check-row{
+    display:flex;
+    align-items:center;
+    gap:7px;
+    padding:3px 0;
+    font-size:13px;
+    cursor:pointer;
+  }
+  .check-row input{ cursor:pointer; }
+  .check-row .cnt{
+    margin-left:auto;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    color:var(--ink-soft);
+  }
+  .reset-link{
+    font-size:12px;
+    color:var(--navy);
+    text-decoration:underline;
+    cursor:pointer;
+    background:none;
+    border:none;
+    padding:0;
+    font-family:inherit;
+  }
+  .main{ padding:24px 28px 40px; }
+  .section-title{
+    font-family:'Source Serif 4', Georgia, serif;
+    font-size:17px;
+    font-weight:600;
+    margin:0 0 12px;
+  }
+  .chart-wrap{
+    margin-bottom:14px;
+    padding-bottom:0;
+  }
+  .kw-scope-note{
+    font-size:12px;
+    color:var(--ink-soft);
+    margin:0 0 12px;
+  }
+  .topics-layout{
+    display:grid;
+    grid-template-columns:1fr 300px;
+    gap:24px;
+    margin-bottom:30px;
+    padding-bottom:22px;
+    border-bottom:1px solid var(--line);
+  }
+  .topic-table-wrap{
+    max-height:340px;
+    overflow-y:auto;
+    border:1px solid var(--line);
+    border-radius:3px;
+  }
+  table.topic-table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:12.5px;
+  }
+  table.topic-table th{
+    position:sticky; top:0;
+    background:var(--paper);
+    text-align:left;
+    font-size:10.5px;
+    text-transform:uppercase;
+    letter-spacing:0.04em;
+    color:var(--ink-soft);
+    padding:6px 8px;
+    border-bottom:1px solid var(--line-strong);
+  }
+  table.topic-table td{
+    padding:5px 8px;
+    border-bottom:1px solid var(--line);
+  }
+  table.topic-table tr.kw-row{ cursor:pointer; }
+  table.topic-table tr.kw-row:hover{ background:var(--amber-bg); }
+  table.topic-table tr.kw-row.active{ background:var(--amber-bg); font-weight:500; }
+  table.topic-table td.rank{ color:var(--ink-soft); font-family:'IBM Plex Mono', monospace; width:32px; }
+  table.topic-table td.cnt{ text-align:right; font-family:'IBM Plex Mono', monospace; color:var(--navy-deep); width:44px; }
+  .active-keyword-banner{
+    display:none;
+    align-items:center;
+    gap:8px;
+    background:var(--amber-bg);
+    color:var(--amber);
+    padding:8px 12px;
+    border-radius:3px;
+    font-size:13px;
+    margin-bottom:14px;
+  }
+  .active-keyword-banner button{
+    margin-left:auto;
+    background:none;
+    border:1px solid var(--amber);
+    color:var(--amber);
+    border-radius:3px;
+    padding:2px 8px;
+    cursor:pointer;
+    font-family:inherit;
+    font-size:12px;
+  }
+  .results-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    margin-bottom:10px;
+  }
+  .results-head .count{ font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--ink-soft); }
+  .paper-row{ padding:11px 0; border-bottom:1px solid var(--line); }
+  .paper-row .title{
+    font-size:14.5px;
+    font-weight:500;
+    margin:0 0 3px;
+    text-decoration:none;
+    color:var(--ink);
+  }
+  .paper-row .title:hover{ color:var(--navy); text-decoration:underline; }
+  .paper-row .meta{ font-size:12px; color:var(--ink-soft); }
+  .paper-row .tag{
+    display:inline-block;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    background:var(--amber-bg);
+    color:var(--amber);
+    padding:1px 6px;
+    border-radius:2px;
+    margin-right:8px;
+    text-transform:uppercase;
+    letter-spacing:0.03em;
+  }
+  .load-more{
+    display:block;
+    margin:18px auto 0;
+    padding:8px 20px;
+    border:1px solid var(--line-strong);
+    background:#fff;
+    cursor:pointer;
+    font-family:inherit;
+    font-size:13px;
+    border-radius:3px;
+  }
+  .load-more:hover{ border-color:var(--navy); color:var(--navy); }
+  .empty{ padding:30px 0; text-align:center; color:var(--ink-soft); font-size:13.5px; }
+  .venue-info-panel{
+    display:none;
+    border:1px solid var(--line-strong);
+    border-radius:4px;
+    padding:18px 20px;
+    margin-bottom:24px;
+    background:#fff;
+    position:relative;
+  }
+  .venue-info-panel.open{ display:block; }
+  .venue-info-panel .close-btn{
+    position:absolute;
+    top:12px; right:14px;
+    background:none;
+    border:none;
+    cursor:pointer;
+    font-size:18px;
+    color:var(--ink-soft);
+    line-height:1;
+  }
+  .venue-info-panel h4{
+    font-family:'Source Serif 4', Georgia, serif;
+    font-size:18px;
+    font-weight:600;
+    margin:0 0 2px;
+  }
+  .venue-info-panel .sub{
+    font-size:12.5px;
+    color:var(--ink-soft);
+    margin:0 0 14px;
+  }
+  .venue-info-panel .dates-table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:13px;
+    margin-bottom:14px;
+  }
+  .venue-info-panel .dates-table td{
+    padding:4px 0;
+    border-bottom:1px solid var(--line);
+  }
+  .venue-info-panel .dates-table td:first-child{ color:var(--ink-soft); width:60%; }
+  .venue-info-panel .dates-table td:last-child{
+    text-align:right;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+  }
+  .venue-info-panel .topics-chips{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    margin-bottom:12px;
+  }
+  .venue-info-panel .topic-chip{
+    font-size:11.5px;
+    background:var(--paper);
+    border:1px solid var(--line-strong);
+    padding:3px 9px;
+    border-radius:12px;
+    color:var(--ink-soft);
+  }
+  .venue-info-panel .source-note{
+    font-size:11.5px;
+    color:var(--ink-soft);
+    border-top:1px solid var(--line);
+    padding-top:10px;
+    margin-top:4px;
+  }
+  .venue-info-panel a{ color:var(--navy); }
+  .venue-link-btn{
+    background:none;
+    border:none;
+    padding:0;
+    font:inherit;
+    cursor:pointer;
+    color:inherit;
+    text-decoration:none;
+  }
+  .sidebar-venue-name{
+    cursor:pointer;
+  }
+  .sidebar-venue-name:hover{ text-decoration:underline; }
+  .ext-conf-card{
+    border:1px solid var(--line);
+    border-radius:4px;
+    padding:14px 16px;
+    margin-bottom:12px;
+  }
+  .ext-conf-card .name{
+    font-family:'Source Serif 4', Georgia, serif;
+    font-size:15.5px;
+    font-weight:600;
+    margin:0 0 2px;
+  }
+  .ext-conf-card .where{
+    font-size:12.5px;
+    color:var(--ink-soft);
+    margin:0 0 8px;
+  }
+  .ext-conf-card .dates-inline{
+    font-size:12.5px;
+    margin:0 0 6px;
+  }
+  .ext-conf-card .dates-inline span{
+    display:inline-block;
+    margin-right:14px;
+    margin-bottom:3px;
+  }
+  .ext-conf-card .dates-inline b{
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:500;
+  }
+  .ext-conf-card .links a{
+    font-size:12.5px;
+    margin-right:14px;
+  }
+  .ext-conf-card .note{
+    font-size:12px;
+    color:var(--ink-soft);
+    margin-top:6px;
+  }
+  @media (max-width: 760px){
+    .layout{ grid-template-columns:1fr; }
+    .sidebar{ border-right:none; border-bottom:1px solid var(--line); }
+    .topics-layout{ grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="masthead">
+  <h1>Conference index</h1>
+  <p>Accepted papers across major NLP venues — fetched live from the ACL Anthology, searchable and filterable</p>
+  <div class="stats-row" id="statsRow"></div>
+  <div class="freshness-row">
+    <span id="lastUpdated" class="last-updated"></span>
+    <button id="refreshBtn" class="refresh-btn">Refresh now</button>
+  </div>
+  <div id="loadingBanner" class="loading-banner" style="display:none;"></div>
+</div>
+
+<div class="layout">
+  <div class="sidebar">
+    <div class="field-group">
+      <h3>Search titles</h3>
+      <input type="search" id="searchBox" placeholder="e.g. retrieval, alignment, agents…">
+    </div>
+    <div class="field-group scrollable">
+      <h3>Venue</h3>
+      <div id="venueChecks"></div>
+    </div>
+    <div class="field-group">
+      <h3>Year</h3>
+      <div id="yearChecks"></div>
+    </div>
+    <div class="field-group scrollable">
+      <h3>Track</h3>
+      <div id="trackChecks"></div>
+    </div>
+    <button class="reset-link" id="resetBtn">Reset all filters</button>
+  </div>
+
+  <div class="main">
+    <div class="venue-info-panel" id="venueInfoPanel">
+      <button class="close-btn" id="venueInfoClose" aria-label="Close">&times;</button>
+      <div id="venueInfoContent"></div>
+    </div>
+
+    <p class="section-title">Topics</p>
+    <p class="kw-scope-note" id="kwScopeNote"></p>
+    <div class="topics-layout">
+      <div style="position:relative; height:340px;">
+        <canvas id="kwChart" role="img" aria-label="Horizontal bar chart of the most frequent keywords in accepted paper titles for the current filter selection"></canvas>
+      </div>
+      <div class="topic-table-wrap">
+        <table class="topic-table">
+          <thead><tr><th>#</th><th>Keyword</th><th style="text-align:right;">Papers</th></tr></thead>
+          <tbody id="topicTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="active-keyword-banner" id="keywordBanner">
+      <span id="keywordBannerText"></span>
+      <button id="clearKeywordBtn">Clear</button>
+    </div>
+
+    <div class="results-head">
+      <p class="section-title" style="margin:0;">Papers</p>
+      <span class="count" id="resultCount"></span>
+    </div>
+    <div class="paper-list" id="paperList"></div>
+    <button class="load-more" id="loadMoreBtn" style="display:none;">Show more</button>
+    <div class="empty" id="emptyState" style="display:none;">No papers match these filters.</div>
+
+    <p class="section-title" style="margin-top:36px; border-top:1px solid var(--line); padding-top:24px;">More conferences</p>
+    <p class="kw-scope-note">These venues aren't in the paper index above (their proceedings aren't on the ACL Anthology), but here's real, sourced submission info as of Sep 2026. Dates change year to year — always verify on the official site before submitting.</p>
+    <div id="externalConfList"></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+
+<script>
+let PAPERS = [];
+
+const VENUE_LABELS = {
+  acl:'ACL', emnlp:'EMNLP', naacl:'NAACL', findings:'Findings', eacl:'EACL',
+  coling:'COLING', conll:'CoNLL', wmt:'WMT', semeval:'SemEval', starsem:'*SEM',
+  tacl:'TACL', iwslt:'IWSLT', lrec:'LREC', ijcnlp:'AACL-IJCNLP', arabicnlp:'ArabicNLP'
+};
+function venueLabel(p){
+  if(p.v === 'findings') return 'Findings of ' + (VENUE_LABELS[p.tr] || p.tr.toUpperCase());
+  return VENUE_LABELS[p.v] || p.v.toUpperCase();
+}
+
+const GENERIC_NLP_TOPICS = ['Dialogue and Interactive Systems','Discourse and Pragmatics','Document Classification and Topic Modeling','Ethics, Bias, and Fairness','Information Extraction','Information Retrieval and Text Mining','Interpretability and Analysis of NLP Models','Language Modeling','Language Resources and Evaluation','Linguistic Theories, Cognitive Modeling and Psycholinguistics','Low-Resource and Efficient Methods for NLP','Machine Learning for NLP','Machine Translation and Translation Aids','Multilingualism and Language Diversity','Multimodal and Grounded Language Acquisition','NLP and LLM Applications','Natural Language Generation','Phonology, Morphology and Word Segmentation','Question Answering','Lexical and Sentence-level Semantics','Sentiment, Stylistic and Argument Mining','Speech Recognition, Synthesis and Spoken Language Understanding','Summarization and Simplification','Syntactic Analysis','Vision and Robotics'];
+
+const VENUE_INFO = {
+  eacl: {
+    name: 'EACL 2027 (20th)',
+    where: 'Athens, Greece · March 9\u201314, 2027',
+    system: 'ACL Rolling Review (ARR) \u2014 submit to an ARR cycle, then commit the reviewed paper to EACL.',
+    dates: [
+      ['ARR submission deadline', 'Aug 3, 2026 (passed)'],
+      ['Reviewer registration deadline', 'Aug 5, 2026'],
+      ['Author response period', 'Sep 14\u201319, 2026'],
+      ['Meta-reviews released', 'Oct 8, 2026'],
+      ['EACL commitment deadline', 'Oct 11, 2026'],
+      ['Notification of acceptance', 'Nov 12, 2026'],
+      ['Camera-ready due', 'Nov 26, 2026'],
+    ],
+    topics: GENERIC_NLP_TOPICS,
+    url: 'https://2027.eacl.org/calls/papers/',
+    asOf: 'Sep 2026'
+  },
+  emnlp: {
+    name: 'EMNLP 2026',
+    where: 'Budapest, Hungary · Oct 22\u201329, 2026',
+    system: 'ACL Rolling Review (ARR) \u2014 submit to an ARR cycle, then commit the reviewed paper to EMNLP.',
+    dates: [
+      ['ARR submission deadline', 'May 25, 2026 (passed)'],
+      ['Reviewer registration deadline', 'May 27, 2026'],
+      ['Author response & discussion', 'Jul 7\u201313, 2026'],
+      ['Meta-reviews released', 'Jul 30, 2026'],
+      ['EMNLP commitment deadline', 'Aug 2, 2026'],
+      ['Notification of acceptance', 'Aug 20, 2026'],
+      ['Camera-ready due', 'Sep 20, 2026'],
+    ],
+    topics: GENERIC_NLP_TOPICS,
+    url: 'https://2026.emnlp.org/',
+    asOf: 'Sep 2026'
+  },
+  ijcnlp: {
+    name: 'AACL-IJCNLP 2026 (5th AACL / 15th IJCNLP)',
+    where: 'Hengqin, China \u00b7 Nov 6\u201310, 2026',
+    system: 'ACL Rolling Review (ARR) \u2014 submit to an ARR cycle, then commit the reviewed paper to AACL-IJCNLP.',
+    dates: [
+      ['ARR submission deadline', 'May 25, 2026 (passed)'],
+      ['Reviewer registration deadline', 'May 27, 2026'],
+      ['Author response & discussion', 'Jul 7\u201313, 2026'],
+      ['Meta-review released', 'Jul 30, 2026'],
+      ['Commitment deadline', 'Aug 26, 2026'],
+      ['Notification of acceptance', 'Sep 7, 2026'],
+      ['Camera-ready due', 'Sep 30, 2026'],
+    ],
+    topics: ['Safety and Alignment in LLMs','AI/LLM Agents','Human-AI Interaction/Cooperation','Retrieval-Augmented Language Models','Mathematical, Symbolic and Logical Reasoning in NLP','Computational Social Science, Cultural Analytics, and NLP for Social Good','Code Models','Interpretability, Model Editing, Transparency and Explainability','LLM Efficiency','Generalizability and Transfer','Dialogue and Interactive Systems','Discourse, Pragmatics and Reasoning','Low-resource Methods for NLP','Ethics, Bias and Fairness','Natural Language Generation','Information Extraction and Retrieval','Linguistic Theories, Cognitive Modeling and Psycholinguistics','Machine Translation','Multilinguality and Language Diversity','Multimodality and Language Grounding to Vision, Robotics and Beyond'],
+    url: 'https://2026.aaclnet.org/calls/main_conference_papers/',
+    asOf: 'Sep 2026'
+  },
+  coling: {
+    name: 'COLING 2027 (32nd)',
+    where: 'Macau, China \u00b7 May 9\u201314, 2027',
+    system: 'ACL Rolling Review (ARR), October 2026 cycle \u2014 this cycle is shared with NAACL 2027; authors choose which venue to commit to after meta-reviews are released.',
+    dates: [
+      ['ARR submission deadline', 'Oct 12, 2026'],
+      ['Main conference', 'May 9\u201314, 2027'],
+    ],
+    topics: GENERIC_NLP_TOPICS,
+    url: 'https://2027.coling-iccl.org/',
+    asOf: 'Sep 2026'
+  },
+  naacl: {
+    name: 'NAACL 2027',
+    where: 'Location TBA',
+    system: 'ACL Rolling Review (ARR), October 2026 cycle \u2014 shared with COLING 2027; authors choose which venue to commit to after meta-reviews are released.',
+    dates: [
+      ['ARR submission deadline', 'Oct 12, 2026'],
+    ],
+    topics: GENERIC_NLP_TOPICS,
+    url: 'https://www.aclweb.org/portal/naacl',
+    asOf: 'Sep 2026',
+    note: 'NAACL wasn\u2019t held as a separate 2026 edition in this dataset\u2019s window; the next edition (NAACL 2027) shares its ARR review cycle with COLING 2027.'
+  },
+  acl: {
+    name: 'ACL',
+    where: 'ACL 2026 already took place (San Diego, CA \u00b7 Jul 2\u20137, 2026)',
+    system: 'ACL Rolling Review (ARR)',
+    dates: [],
+    topics: GENERIC_NLP_TOPICS,
+    url: 'https://www.aclweb.org/portal/',
+    asOf: 'Sep 2026',
+    note: 'ACL 2027\u2019s call for papers had not been announced as of this dashboard\u2019s last data refresh. ACL uses the same ARR rolling-review system as EMNLP/NAACL/EACL \u2014 check aclweb.org/portal for the announcement.'
+  },
+  findings: {
+    name: 'Findings',
+    where: '\u2014',
+    system: 'Findings is not a standalone conference \u2014 it\u2019s a companion track to ACL, EMNLP, NAACL and EACL for solid papers that don\u2019t get an oral/poster slot at the main venue.',
+    dates: [],
+    topics: [],
+    url: '',
+    asOf: 'Sep 2026',
+    note: 'There\u2019s no separate Findings deadline \u2014 it follows whichever parent conference (ACL/EMNLP/NAACL/EACL) the paper was submitted to. Click that parent venue\u2019s own tag for its deadlines.'
+  }
+};
+
+const DEFAULT_VENUE_NOTE = {
+  where: '\u2014',
+  system: 'Specific 2026/2027 submission deadlines for this venue weren\u2019t verified for this dashboard.',
+  dates: [],
+  topics: [],
+  asOf: 'Sep 2026'
+};
+
+function showVenueInfo(venueCode){
+  const panel = document.getElementById('venueInfoPanel');
+  const content = document.getElementById('venueInfoContent');
+  const info = VENUE_INFO[venueCode];
+  const label = VENUE_LABELS[venueCode] || venueCode.toUpperCase();
+
+  let html = '';
+  if(info){
+    html += '<h4>' + escapeHtml(info.name) + '</h4>';
+    html += '<p class="sub">' + escapeHtml(info.where) + '</p>';
+    if(info.note){
+      html += '<p style="font-size:13px; margin:0 0 12px;">' + escapeHtml(info.note) + '</p>';
+    }
+    if(info.system){
+      html += '<p style="font-size:13px; margin:0 0 12px;"><strong>Submission system:</strong> ' + escapeHtml(info.system) + '</p>';
+    }
+    if(info.dates && info.dates.length){
+      html += '<table class="dates-table">' + info.dates.map(d=>'<tr><td>' + escapeHtml(d[0]) + '</td><td>' + escapeHtml(d[1]) + '</td></tr>').join('') + '</table>';
+    }
+    if(info.topics && info.topics.length){
+      html += '<p style="font-size:12px; color:var(--ink-soft); margin:0 0 6px;">Submission topics (from the most recent published call for papers):</p>';
+      html += '<div class="topics-chips">' + info.topics.map(t=>'<span class="topic-chip">' + escapeHtml(t) + '</span>').join('') + '</div>';
+    }
+    html += '<p class="source-note">As of ' + escapeHtml(info.asOf) + '.' + (info.url ? ' <a href="' + info.url + '" target="_blank" rel="noopener">Official call for papers &rarr;</a>' : '') + ' Deadlines and topics change year to year \u2014 verify on the official site before submitting.</p>';
+  } else {
+    html += '<h4>' + escapeHtml(label) + '</h4>';
+    html += '<p class="sub">' + escapeHtml(DEFAULT_VENUE_NOTE.where) + '</p>';
+    html += '<p style="font-size:13px; margin:0 0 12px;">' + escapeHtml(DEFAULT_VENUE_NOTE.system) + '</p>';
+    html += '<p class="source-note">As of ' + escapeHtml(DEFAULT_VENUE_NOTE.asOf) + '. <a href="https://aclanthology.org/venues/' + encodeURIComponent(venueCode) + '/" target="_blank" rel="noopener">Browse this venue on the ACL Anthology &rarr;</a></p>';
+  }
+
+  content.innerHTML = html;
+  panel.classList.add('open');
+  if(typeof panel.scrollIntoView === 'function'){
+    panel.scrollIntoView({ behavior:'smooth', block:'start' });
+  }
+}
+
+document.getElementById('venueInfoClose').addEventListener('click', ()=>{
+  document.getElementById('venueInfoPanel').classList.remove('open');
+});
+
+const EXTERNAL_CONFS = [
+  {
+    name: 'NeurIPS 2026 (39th)',
+    where: 'Sydney, Australia \u00b7 Dec 6\u201312, 2026',
+    dates: [['Abstract deadline', 'May 4, 2026'], ['Full paper deadline', 'May 6, 2026'], ['Author notification', 'Sep 24, 2026']],
+    site: 'https://neurips.cc/',
+    proceedings: 'https://neurips.cc/virtual/2026/papers.html'
+  },
+  {
+    name: 'ICML 2026 (43rd)',
+    where: 'Seoul, South Korea \u00b7 Jul 6\u201311, 2026',
+    dates: [['Abstract deadline', 'Jan 23, 2026'], ['Author notification', 'Apr 30, 2026']],
+    site: 'https://icml.cc/',
+    note: 'ICML 2027 dates/CFP not yet announced.'
+  },
+  {
+    name: 'ICLR 2027 (15th)',
+    where: 'Location TBA \u00b7 Apr 26\u201328, 2027',
+    dates: [['Abstract deadline', 'Sep 18, 2026 (AoE)'], ['Paper deadline', 'Sep 25, 2026 (AoE)'], ['Reviews released', 'Nov 5, 2026'], ['Final decisions', 'Dec 16, 2026']],
+    site: 'https://www.iclr.cc/Conferences/2027/CallForPapers',
+    note: 'These deadlines are imminent relative to Sep 2026 \u2014 check now if this is relevant to you.'
+  },
+  {
+    name: 'AAAI-27 (41st)',
+    where: 'Montr\u00e9al, Canada \u00b7 Feb 16\u201323, 2027',
+    dates: [['Abstract deadline', 'Jul 21, 2026'], ['Full paper deadline', 'Jul 28, 2026'], ['Notification', 'Nov 30, 2026'], ['Camera-ready', 'Dec 14, 2026']],
+    site: 'https://aaai.org/conference/aaai/aaai-27/main-technical-track-call/'
+  },
+  {
+    name: 'IJCAI 2027',
+    where: 'Dates/location not yet announced (IJCAI-ECAI 2026 was Aug 16\u201322, 2026, Bremen, Germany)',
+    dates: [],
+    site: 'https://ijcai.org/',
+    note: 'IJCAI-ECAI 2026 abstract deadline was Jan 12, 2026. No 2027 CFP found yet.'
+  },
+  {
+    name: 'ACM CHI 2027',
+    where: 'Pittsburgh, PA, USA \u00b7 May 10\u201314, 2027',
+    dates: [['Submission site opens', 'Jul 30, 2026'], ['Full paper deadline', 'Sep 10, 2026'], ['Revise & resubmit due', 'Dec 3, 2026'], ['Final notification', 'Dec 17, 2026']],
+    site: 'https://sigchi.org/',
+    note: 'Paper deadline is imminent relative to Sep 2026.'
+  },
+  {
+    name: 'ACM IUI 2027 (32nd)',
+    where: 'Helsinki, Finland \u00b7 Feb 8\u201311, 2027',
+    dates: [['Workshop proposals', 'Jul 6, 2026'], ['Papers abstract', 'Aug 13, 2026'], ['Papers full document', 'Aug 20, 2026'], ['Tutorial proposals', 'Aug 20, 2026']],
+    site: 'https://iui.acm.org/2027/'
+  },
+  {
+    name: 'AAMAS 2027 (26th)',
+    where: 'Hanoi, Vietnam \u00b7 May 3\u20137, 2027',
+    dates: [['Author registration', 'Sep 17, 2026'], ['Abstract submission', 'Oct 1, 2026'], ['Paper submission', 'Oct 8, 2026'], ['Notification', 'Dec 21, 2026'], ['Camera-ready', 'Jan 25, 2027']],
+    site: 'https://ifaamas.org/',
+    note: 'New for 2027: adds a "Findings of AAMAS" companion track, similar to ACL Findings.'
+  },
+  {
+    name: 'ACM CSCW 2026',
+    where: 'Salt Lake City, UT, USA \u00b7 Oct 10\u201314, 2026',
+    dates: [],
+    site: 'https://cscw.acm.org/2026/',
+    note: 'CSCW uses a rolling review model (multiple submission cycles per year) rather than one annual deadline \u2014 check the official site for the current cycle.'
+  },
+  {
+    name: 'ACM HCOMP 2026 (renamed: Conference on Human-AI Complementarity and Alignment)',
+    where: 'Washington, D.C. area, USA \u00b7 Sep 27\u201330, 2026',
+    dates: [['Abstracts due', 'Jun 1, 2026'], ['Papers due', 'Jun 8, 2026'], ['Notification', 'Jul 31, 2026'], ['Camera-ready', 'Aug 13, 2026']],
+    site: 'https://hcomp.acm.org/2026/',
+    note: 'Co-located with the ACM Collective Intelligence Conference. Conference dates are imminent relative to Sep 2026.'
+  },
+  {
+    name: 'ACM FAccT 2026 (9th)',
+    where: 'Montr\u00e9al, Canada \u00b7 mid-to-late June 2026',
+    dates: [['Abstract deadline', 'Jan 8, 2026'], ['Paper deadline', 'Jan 13, 2026'], ['Notification', 'Mar 2, 2026'], ['Camera-ready', 'May 11, 2026']],
+    site: 'https://facctconference.org/2026'
+  },
+  {
+    name: 'AIES 2026 (9th AAAI/ACM Conference on AI, Ethics, and Society)',
+    where: 'Details for 2026 not fully confirmed in this pass',
+    dates: [],
+    site: 'https://www.aies-conference.com/2026/',
+    note: 'Official 2026 CFP page exists but specific deadlines weren\u2019t verified here \u2014 check the site directly.'
+  },
+  {
+    name: 'MLHC 2026 (Machine Learning for Healthcare)',
+    where: 'Baltimore, MD, USA \u00b7 Aug 12\u201314, 2026',
+    dates: [['OpenReview account deadline', 'Apr 3, 2026'], ['Paper deadline', 'Apr 17, 2026'], ['Decisions announced', 'Jul 3, 2026']],
+    site: 'https://www.uu.nl/en/news/call-for-papers-machine-learning-for-healthcare-mlhc-2026',
+    note: 'Official MLHC site URL wasn\u2019t independently confirmed this session \u2014 the link above is a university news post reporting the CFP.'
+  },
+  {
+    name: 'CHIL (Conference on Health, Inference, and Learning)',
+    where: 'Not verified this session',
+    dates: [],
+    site: '',
+    note: 'No current CFP or official link was verified in this pass \u2014 search "CHIL conference health inference learning" for the latest.'
+  },
+  {
+    name: 'AMIA 2026 Annual Symposium',
+    where: 'Pittsburgh, PA, USA \u00b7 Dec 2\u20134, 2026',
+    dates: [],
+    site: 'https://amiaconference.net/amia-2026-call-for-proposals/',
+    note: 'Currently in its Call for Proposals phase (sessions, posters, workshops) rather than a single paper deadline.'
+  }
+];
+
+function renderExternalConfs(){
+  const el = document.getElementById('externalConfList');
+  el.innerHTML = EXTERNAL_CONFS.map(c => {
+    let html = '<div class="ext-conf-card">';
+    html += '<p class="name">' + escapeHtml(c.name) + '</p>';
+    html += '<p class="where">' + escapeHtml(c.where) + '</p>';
+    if(c.dates && c.dates.length){
+      html += '<p class="dates-inline">' + c.dates.map(d => '<span>' + escapeHtml(d[0]) + ': <b>' + escapeHtml(d[1]) + '</b></span>').join('') + '</p>';
+    }
+    html += '<p class="links">';
+    if(c.site) html += '<a href="' + c.site + '" target="_blank" rel="noopener">Official site \u2192</a>';
+    if(c.proceedings) html += '<a href="' + c.proceedings + '" target="_blank" rel="noopener">Recent papers \u2192</a>';
+    html += '</p>';
+    if(c.note) html += '<p class="note">' + escapeHtml(c.note) + '</p>';
+    html += '</div>';
+    return html;
+  }).join('');
+}
+renderExternalConfs();
+
+let state = {
+  q: '',
+  venues: new Set(),
+  years: new Set(),
+  tracks: new Set(),
+  keyword: null,
+  visibleCount: 60
+};
+
+function uniqueSorted(arr){ return Array.from(new Set(arr)).sort(); }
+let ALL_VENUES = [];
+let ALL_YEARS = [];
+let ALL_TRACKS = [];
+
+function countFor(field, value){
+  return PAPERS.filter(p=>p[field]===value).length;
+}
+
+function renderChecks(containerId, values, field, labelFn){
+  const el = document.getElementById(containerId);
+  el.innerHTML = '';
+  values.forEach(v=>{
+    const row = document.createElement('label');
+    row.className = 'check-row';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.value = v;
+    cb.addEventListener('change', ()=>{
+      const set = state[field];
+      if(cb.checked) set.add(v); else set.delete(v);
+      state.visibleCount = 60;
+      renderAll();
+    });
+    const span = document.createElement('span');
+    span.textContent = labelFn(v);
+    if(field === 'venues'){
+      span.className = 'sidebar-venue-name';
+      span.title = 'Click for submission info';
+      span.addEventListener('click', (e)=>{
+        e.preventDefault();
+        e.stopPropagation();
+        showVenueInfo(v);
+      });
+    }
+    const cnt = document.createElement('span');
+    cnt.className = 'cnt';
+    cnt.textContent = countFor(field==='venues'?'v':field==='years'?'y':'tr', v);
+    row.appendChild(cb);
+    row.appendChild(span);
+    row.appendChild(cnt);
+    el.appendChild(row);
+  });
+}
+
+document.getElementById('searchBox').addEventListener('input', (e)=>{
+  state.q = e.target.value.trim().toLowerCase();
+  state.visibleCount = 60;
+  renderAll();
+});
+
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  state = {q:'', venues:new Set(), years:new Set(), tracks:new Set(), keyword:null, visibleCount:60};
+  document.getElementById('searchBox').value = '';
+  document.querySelectorAll('.check-row input').forEach(cb=>cb.checked=false);
+  renderAll();
+});
+
+document.getElementById('loadMoreBtn').addEventListener('click', ()=>{
+  state.visibleCount += 60;
+  renderAll();
+});
+
+document.getElementById('clearKeywordBtn').addEventListener('click', ()=>{
+  state.keyword = null;
+  state.visibleCount = 60;
+  renderAll();
+});
+
+function sidebarFilteredPapers(){
+  return PAPERS.filter(p=>{
+    if(state.q && !p.t.toLowerCase().includes(state.q)) return false;
+    if(state.venues.size && !state.venues.has(p.v)) return false;
+    if(state.years.size && !state.years.has(p.y)) return false;
+    if(state.tracks.size && !state.tracks.has(p.tr)) return false;
+    return true;
+  });
+}
+
+function finalFilteredPapers(){
+  let results = sidebarFilteredPapers();
+  if(state.keyword){
+    var escaped = state.keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    var re = new RegExp('\\b' + escaped + '\\b', 'i');
+    results = results.filter(p=>re.test(p.t));
+  }
+  results = results.slice().sort((a,b)=> b.y.localeCompare(a.y));
+  return results;
+}
+
+function renderStats(){
+  const el = document.getElementById('statsRow');
+  el.innerHTML = '';
+  const items = [
+    [PAPERS.length.toLocaleString(), 'papers indexed'],
+    [ALL_VENUES.length, 'venues'],
+    [ALL_YEARS.join('–'), 'years covered']
+  ];
+  items.forEach(([n,l])=>{
+    const d = document.createElement('div');
+    d.className = 'stat';
+    d.innerHTML = '<div class="n">' + n + '</div><div class="l">' + l + '</div>';
+    el.appendChild(d);
+  });
+}
+renderStats();
+
+function escapeHtml(s){
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+const MIN_STOP = new Set(['a','an','the','of','for','and','to','in','on','with','from','by','as','at','into','is','are','via','through','be','this','that','it','its','their','we','how','do','does','what','can','using','towards','toward','than','then','not','no','or','but','over','under','about','across','between','among','without','within','more','most','less','least','also','all','any','some']);
+
+function keywordsFromTitle(title){
+  const words = (title.toLowerCase().match(/[a-z][a-z\-]+/g) || []);
+  return words.filter(w => !MIN_STOP.has(w) && w.length > 2);
+}
+
+let kwChart = null;
+
+function renderTopics(){
+  const scoped = sidebarFilteredPapers();
+  const counts = {};
+  scoped.forEach(p=>{
+    const seen = new Set(keywordsFromTitle(p.t));
+    seen.forEach(w=>{ counts[w] = (counts[w]||0) + 1; });
+  });
+  const ranked = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+
+  const noteParts = [];
+  if(state.venues.size) noteParts.push(Array.from(state.venues).map(v=>VENUE_LABELS[v]||v).join(', '));
+  if(state.years.size) noteParts.push(Array.from(state.years).join(', '));
+  document.getElementById('kwScopeNote').textContent = noteParts.length
+    ? ('Scope: ' + noteParts.join(' · ') + ' — ' + ranked.length.toLocaleString() + ' unique keywords across ' + scoped.length.toLocaleString() + ' papers')
+    : ('All venues, all years — ' + ranked.length.toLocaleString() + ' unique keywords across ' + scoped.length.toLocaleString() + ' papers');
+
+  const top15 = ranked.slice(0,15);
+  const labels = top15.map(d=>d[0]);
+  const vals = top15.map(d=>d[1]);
+  const ctx = document.getElementById('kwChart');
+  if(kwChart) kwChart.destroy();
+  kwChart = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [{ label:'Papers', data: vals, backgroundColor:'#233B5C', borderRadius:3, maxBarThickness:16 }] },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display:false } },
+      onClick: (evt, elements) => {
+        if(elements.length){
+          const idx = elements[0].index;
+          selectKeyword(labels[idx]);
+        }
+      },
+      scales: {
+        x: { grid:{ color:'#E5E3D9' }, ticks:{ color:'#4A4D52', font:{size:11} } },
+        y: { grid:{ display:false }, ticks:{ color:'#16181B', font:{size:12} } }
+      }
+    }
+  });
+
+  const tbody = document.getElementById('topicTableBody');
+  tbody.innerHTML = '';
+  const top200 = ranked.slice(0,200);
+  top200.forEach(([word, cnt], i)=>{
+    const tr = document.createElement('tr');
+    tr.className = 'kw-row' + (state.keyword === word ? ' active' : '');
+    tr.innerHTML = '<td class="rank">' + (i+1) + '</td><td>' + escapeHtml(word) + '</td><td class="cnt">' + cnt + '</td>';
+    tr.addEventListener('click', ()=> selectKeyword(word));
+    tbody.appendChild(tr);
+  });
+}
+
+function selectKeyword(word){
+  state.keyword = (state.keyword === word) ? null : word;
+  state.visibleCount = 60;
+  renderAll();
+}
+
+function renderKeywordBanner(){
+  const banner = document.getElementById('keywordBanner');
+  const text = document.getElementById('keywordBannerText');
+  if(state.keyword){
+    banner.style.display = 'flex';
+    text.textContent = 'Showing papers matching "' + state.keyword + '"';
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+function renderList(){
+  const results = finalFilteredPapers();
+  const listEl = document.getElementById('paperList');
+  const countEl = document.getElementById('resultCount');
+  const emptyEl = document.getElementById('emptyState');
+  const loadMoreBtn = document.getElementById('loadMoreBtn');
+
+  countEl.textContent = results.length.toLocaleString() + ' match' + (results.length===1?'':'es') + ' · latest first';
+  listEl.innerHTML = '';
+
+  if(results.length === 0){
+    emptyEl.style.display = 'block';
+    loadMoreBtn.style.display = 'none';
+    return;
+  }
+  emptyEl.style.display = 'none';
+
+  const shown = results.slice(0, state.visibleCount);
+  shown.forEach(p=>{
+    const row = document.createElement('div');
+    row.className = 'paper-row';
+    const titleHtml = p.u
+      ? '<a class="title" href="' + p.u + '" target="_blank" rel="noopener">' + escapeHtml(p.t) + '</a>'
+      : '<p class="title">' + escapeHtml(p.t) + '</p>';
+    row.innerHTML = titleHtml + '<p class="meta"><span class="tag venue-link-btn" data-venue="' + escapeHtml(p.v) + '" title="Click for submission info">' + escapeHtml(venueLabel(p)) + ' ' + escapeHtml(p.y) + '</span>' + escapeHtml(p.a) + ' · ' + escapeHtml(p.tr) + '</p>';
+    row.querySelector('.tag').addEventListener('click', ()=> showVenueInfo(p.v));
+    listEl.appendChild(row);
+  });
+
+  loadMoreBtn.style.display = results.length > state.visibleCount ? 'block' : 'none';
+}
+
+function renderAll(){
+  renderTopics();
+  renderKeywordBanner();
+  renderList();
+}
+
+const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const GH_RAW_BASE = 'https://raw.githubusercontent.com/acl-org/acl-anthology/master/data/xml/';
+
+async function fetchManifest(){
+  const res = await fetch('./manifest.json', { cache: 'no-store' });
+  if(!res.ok) throw new Error('manifest fetch failed: ' + res.status);
+  return res.json();
+}
+
+function parseCollectionXML(xmlText){
+  const doc = new DOMParser().parseFromString(xmlText, 'text/xml');
+  const root = doc.documentElement;
+  const collId = root.getAttribute('id');
+  const records = [];
+  root.querySelectorAll(':scope > volume').forEach(vol => {
+    const meta = vol.querySelector(':scope > meta');
+    if(!meta) return;
+    const venueEl = meta.querySelector('venue');
+    const venue = venueEl ? venueEl.textContent : collId;
+    const yearEl = meta.querySelector('year');
+    const year = yearEl ? yearEl.textContent : '';
+    const volId = vol.getAttribute('id');
+    vol.querySelectorAll(':scope > paper').forEach(paper => {
+      const titleEl = paper.querySelector('title');
+      if(!titleEl) return;
+      const title = titleEl.textContent.trim();
+      const authors = [];
+      paper.querySelectorAll('author').forEach(a => {
+        const first = a.querySelector('first');
+        const last = a.querySelector('last');
+        const name = ((first ? first.textContent : '') + ' ' + (last ? last.textContent : '')).trim();
+        authors.push(name);
+      });
+      const aStr = authors.slice(0,3).join(', ') + (authors.length > 3 ? ' et al.' : '');
+      const anthId = collId + '-' + volId + '.' + paper.getAttribute('id');
+      records.push({
+        t: title,
+        a: aStr,
+        v: venue,
+        tr: volId,
+        y: year,
+        u: 'https://aclanthology.org/' + anthId + '/'
+      });
+    });
+  });
+  return records;
+}
+
+async function fetchCollection(collId, forceRefresh){
+  const cacheKey = 'aclcache_' + collId;
+  if(!forceRefresh){
+    try{
+      const cached = JSON.parse(localStorage.getItem(cacheKey));
+      if(cached && (Date.now() - cached.ts) < CACHE_TTL_MS){
+        return cached.records;
+      }
+    } catch(e){}
+  }
+  const res = await fetch(GH_RAW_BASE + collId + '.xml', { cache: 'no-store' });
+  if(!res.ok) throw new Error('fetch failed for ' + collId + ': ' + res.status);
+  const xmlText = await res.text();
+  const records = parseCollectionXML(xmlText);
+  try{
+    localStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), records }));
+  } catch(e){}
+  return records;
+}
+
+function setLoadingState(text, visible){
+  const el = document.getElementById('loadingBanner');
+  if(!el) return;
+  el.textContent = text;
+  el.style.display = visible ? 'block' : 'none';
+}
+
+async function loadAllPapers(forceRefresh){
+  setLoadingState('Loading conference data\u2026', true);
+  document.getElementById('refreshBtn').disabled = true;
+  let manifest;
+  try{
+    manifest = await fetchManifest();
+  } catch(e){
+    setLoadingState('Could not load the venue manifest. Check your connection and reload.', true);
+    document.getElementById('refreshBtn').disabled = false;
+    return;
+  }
+
+  const all = [];
+  let done = 0;
+  await Promise.all(manifest.collections.map(async (collId) => {
+    try{
+      const records = await fetchCollection(collId, forceRefresh);
+      all.push(...records);
+    } catch(e){
+      console.warn('Skipped ' + collId, e);
+    }
+    done++;
+    setLoadingState('Loading conference data\u2026 (' + done + '/' + manifest.collections.length + ' venues)', true);
+  }));
+
+  PAPERS = all.map((p,i)=>({...p, id:i}));
+  ALL_VENUES = uniqueSorted(PAPERS.map(p=>p.v));
+  ALL_YEARS = uniqueSorted(PAPERS.map(p=>p.y)).sort();
+  ALL_TRACKS = uniqueSorted(PAPERS.map(p=>p.tr));
+
+  renderChecks('venueChecks', ALL_VENUES, 'venues', v=>VENUE_LABELS[v]||v);
+  renderChecks('yearChecks', ALL_YEARS, 'years', v=>v);
+  renderChecks('trackChecks', ALL_TRACKS, 'tracks', v=>v);
+  renderStats();
+  renderAll();
+
+  const updatedEl = document.getElementById('lastUpdated');
+  if(updatedEl){
+    updatedEl.textContent = 'Data as of ' + new Date().toLocaleString() +
+      (manifest.generated_at ? ' \u00b7 venue list refreshed ' + new Date(manifest.generated_at).toLocaleDateString() : '');
+  }
+  setLoadingState('', false);
+  document.getElementById('refreshBtn').disabled = false;
+}
+
+document.getElementById('refreshBtn').addEventListener('click', () => {
+  loadAllPapers(true);
+});
+
+loadAllPapers(false);
+</script>
+</body>
+</html>
