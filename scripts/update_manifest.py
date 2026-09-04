@@ -32,7 +32,7 @@ TRACKED_VENUE_PREFIXES = [
 
 # Only track collections from this year onward, to keep the dashboard's
 # scope (and the amount of data a visitor's browser has to fetch) bounded.
-MIN_YEAR = 2020
+MIN_YEAR = datetime.now(timezone.utc).year - 9
 
 COLLECTION_RE = re.compile(r"^(\d{4})\.([a-z0-9]+)$")
 
