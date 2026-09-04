@@ -901,6 +901,14 @@ let state = {
 };
 
 function uniqueSorted(arr){ return Array.from(new Set(arr)).sort(); }
+function normalizeText(value){
+  return String(value || '')
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[\u2010-\u2015\u2212]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 let ALL_VENUES = [];
 let ALL_YEARS = [];
 let ALL_TRACKS = [];
@@ -946,7 +954,7 @@ function renderChecks(containerId, values, field, labelFn){
 }
 
 document.getElementById('searchBox').addEventListener('input', (e)=>{
-  state.q = e.target.value.trim().toLowerCase();
+  state.q = normalizeText(e.target.value);
   state.visibleCount = 60;
   renderAll();
 });
@@ -978,7 +986,7 @@ document.getElementById('keywordMode').addEventListener('change', (e)=>{
 
 function sidebarFilteredPapers(){
   return PAPERS.filter(p=>{
-    if(state.q && !p.t.toLowerCase().includes(state.q)) return false;
+    if(state.q && !normalizeText(p.t).includes(state.q)) return false;
     if(state.venues.size && !state.venues.has(p.v)) return false;
     if(state.years.size && !state.years.has(p.y)) return false;
     if(state.tracks.size && !state.tracks.has(p.tr)) return false;
@@ -990,12 +998,12 @@ function finalFilteredPapers(){
   let results = sidebarFilteredPapers();
   if(state.keywords.size){
     const expressions = Array.from(state.keywords).map(word => {
-      const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const escaped = normalizeText(word).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       return new RegExp('\\b' + escaped + '\\b', 'i');
     });
     results = results.filter(p => state.keywordMode === 'all'
-      ? expressions.every(re => re.test(p.t))
-      : expressions.some(re => re.test(p.t)));
+      ? expressions.every(re => re.test(normalizeText(p.t)))
+      : expressions.some(re => re.test(normalizeText(p.t))));
   }
   results = results.slice().sort((a,b)=> b.y.localeCompare(a.y));
   return results;
@@ -1027,7 +1035,7 @@ function escapeHtml(s){
 const MIN_STOP = new Set(['a','an','the','of','for','and','to','in','on','with','from','by','as','at','into','is','are','via','through','be','this','that','it','its','their','we','how','do','does','what','can','using','towards','toward','than','then','not','no','or','but','over','under','about','across','between','among','without','within','more','most','less','least','also','all','any','some']);
 
 function keywordsFromTitle(title){
-  const words = (title.toLowerCase().match(/[a-z][a-z\-]+/g) || []);
+  const words = (normalizeText(title).match(/[a-z][a-z\-]+/g) || []);
   return words.filter(w => !MIN_STOP.has(w) && w.length > 2);
 }
 
