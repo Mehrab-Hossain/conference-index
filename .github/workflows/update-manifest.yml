@@ -1,0 +1,43 @@
+name: Refresh venue manifest
+
+on:
+  schedule:
+    # Once a day at 06:00 UTC. Change the cron expression to run more
+    # or less often -- the dashboard itself still fetches live data on
+    # every page view regardless of this schedule; this job only keeps
+    # the *list* of tracked venues/years current.
+    - cron: '0 6 * * *'
+  workflow_dispatch: {}  # lets you trigger it manually from the Actions tab
+
+permissions:
+  contents: write
+
+jobs:
+  update-manifest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Refresh manifest.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/update_manifest.py
+
+      - name: Commit changes if manifest.json changed
+        run: |
+          if git diff --quiet manifest.json; then
+            echo "No changes to manifest.json"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add manifest.json
+            git commit -m "Auto-refresh venue manifest"
+            git push
+          fi
