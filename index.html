@@ -537,10 +537,10 @@
 
     <div class="results-head">
       <p class="section-title" style="margin:0;">Papers</p>
-      <span class="count" id="resultCount"></span>
+      <span class="count" id="resultCount" aria-live="polite"></span>
     </div>
     <div class="paper-list" id="paperList"></div>
-    <button class="load-more" id="loadMoreBtn" style="display:none;">Show more</button>
+    <button class="load-more" id="loadMoreBtn" style="display:none;">Load next 10</button>
     <div class="empty" id="emptyState" style="display:none;">No papers match these filters.</div>
 
     <p class="section-title" style="margin-top:36px; border-top:1px solid var(--line); padding-top:24px;">More conferences</p>
@@ -924,6 +924,8 @@ function renderExternalConfs(){
 }
 renderExternalConfs();
 
+const PAGE_SIZE = 10;
+
 let state = {
   q: '',
   venues: new Set(),
@@ -931,7 +933,7 @@ let state = {
   tracks: new Set(),
   keywords: new Set(),
   keywordMode: 'any',
-  visibleCount: 60
+  visibleCount: PAGE_SIZE
 };
 
 function uniqueSorted(arr){ return Array.from(new Set(arr)).sort(); }
@@ -1097,7 +1099,7 @@ function renderChecks(containerId, values, field, labelFn){
     cb.addEventListener('change', ()=>{
       const set = state[field];
       if(cb.checked) set.add(v); else set.delete(v);
-      state.visibleCount = 60;
+      state.visibleCount = PAGE_SIZE;
       renderAll();
     });
     const span = document.createElement('span');
@@ -1124,13 +1126,13 @@ function renderChecks(containerId, values, field, labelFn){
 document.getElementById('searchBox').addEventListener('input', (e)=>{
   state.q = e.target.value.trim();
   currentSearchGroups = parseSearchQuery(state.q);
-  state.visibleCount = 60;
+  state.visibleCount = PAGE_SIZE;
   clearTimeout(searchTimer);
   searchTimer = setTimeout(renderAll, 120);
 });
 
 document.getElementById('resetBtn').addEventListener('click', ()=>{
-  state = {q:'', venues:new Set(), years:new Set(), tracks:new Set(), keywords:new Set(), keywordMode:'any', visibleCount:60};
+  state = {q:'', venues:new Set(), years:new Set(), tracks:new Set(), keywords:new Set(), keywordMode:'any', visibleCount:PAGE_SIZE};
   currentSearchGroups = [];
   document.getElementById('searchBox').value = '';
   document.getElementById('keywordMode').value = 'any';
@@ -1139,19 +1141,34 @@ document.getElementById('resetBtn').addEventListener('click', ()=>{
 });
 
 document.getElementById('loadMoreBtn').addEventListener('click', ()=>{
-  state.visibleCount += 60;
-  renderAll();
+  state.visibleCount += PAGE_SIZE;
+  renderList();
 });
+
+let autoLoadQueued = false;
+if('IntersectionObserver' in window){
+  const loadMoreObserver = new IntersectionObserver(entries => {
+    if(!entries[0].isIntersecting || autoLoadQueued ||
+       document.getElementById('loadMoreBtn').style.display === 'none') return;
+    autoLoadQueued = true;
+    requestAnimationFrame(()=>{
+      state.visibleCount += PAGE_SIZE;
+      renderList();
+      autoLoadQueued = false;
+    });
+  }, { rootMargin:'300px 0px' });
+  loadMoreObserver.observe(document.getElementById('loadMoreBtn'));
+}
 
 document.getElementById('clearKeywordBtn').addEventListener('click', ()=>{
   state.keywords.clear();
-  state.visibleCount = 60;
+  state.visibleCount = PAGE_SIZE;
   renderAll();
 });
 
 document.getElementById('keywordMode').addEventListener('change', (e)=>{
   state.keywordMode = e.target.value;
-  state.visibleCount = 60;
+  state.visibleCount = PAGE_SIZE;
   renderAll();
 });
 
@@ -1274,7 +1291,7 @@ function renderTopics(){
 function selectKeyword(word){
   if(state.keywords.has(word)) state.keywords.delete(word);
   else state.keywords.add(word);
-  state.visibleCount = 60;
+  state.visibleCount = PAGE_SIZE;
   renderAll();
 }
 
@@ -1310,7 +1327,9 @@ function renderList(){
   const emptyEl = document.getElementById('emptyState');
   const loadMoreBtn = document.getElementById('loadMoreBtn');
 
+  const showing = Math.min(state.visibleCount, results.length);
   countEl.textContent = results.length.toLocaleString() + ' match' + (results.length===1?'':'es') +
+    ' · showing ' + showing.toLocaleString() +
     (state.q ? ' · relevance ranked' : ' · latest first');
   listEl.innerHTML = '';
 
