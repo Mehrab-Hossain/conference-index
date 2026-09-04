@@ -356,6 +356,42 @@
     padding-top:10px;
     margin-top:4px;
   }
+  .analytics-section{
+    border-top:1px solid var(--line);
+    margin-top:16px;
+    padding-top:16px;
+  }
+  .analytics-section h5{
+    font-family:'Source Serif 4', Georgia, serif;
+    font-size:16px;
+    margin:0 0 4px;
+  }
+  .analytics-note{ font-size:11.5px; color:var(--ink-soft); margin:0 0 12px; }
+  .analytics-summary{ display:flex; flex-wrap:wrap; gap:10px; margin-bottom:14px; }
+  .analytics-card{
+    min-width:105px;
+    border:1px solid var(--line);
+    border-radius:3px;
+    padding:8px 10px;
+    background:var(--paper);
+  }
+  .analytics-card strong{ display:block; font:500 17px 'IBM Plex Mono', monospace; color:var(--navy-deep); }
+  .analytics-card span{ font-size:10.5px; color:var(--ink-soft); }
+  .yearly-analytics{ width:100%; border-collapse:collapse; font-size:12px; margin-bottom:14px; }
+  .yearly-analytics th{ text-align:left; color:var(--ink-soft); border-bottom:1px solid var(--line-strong); padding:5px 6px; }
+  .yearly-analytics td{ border-bottom:1px solid var(--line); padding:6px; vertical-align:top; }
+  .yearly-analytics td:first-child,
+  .yearly-analytics td:nth-child(2){ font-family:'IBM Plex Mono', monospace; white-space:nowrap; }
+  .trend-chip{
+    display:inline-block;
+    background:#E8F0E9;
+    color:#285A35;
+    border:1px solid #B8CFBD;
+    border-radius:12px;
+    padding:3px 9px;
+    margin:3px 4px 3px 0;
+    font-size:11.5px;
+  }
   .venue-info-panel a{ color:var(--navy); }
   .venue-link-btn{
     background:none;
@@ -620,6 +656,71 @@ const DEFAULT_VENUE_NOTE = {
   asOf: 'Sep 2026'
 };
 
+function topicCounts(papers){
+  const counts = {};
+  papers.forEach(p => {
+    new Set(keywordsFromTitle(p.t)).forEach(word => {
+      counts[word] = (counts[word] || 0) + 1;
+    });
+  });
+  return counts;
+}
+
+function topTopics(papers, limit){
+  return Object.entries(topicCounts(papers))
+    .sort((a,b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, limit);
+}
+
+function venueAnalyticsHtml(venueCode){
+  const venuePapers = PAPERS.filter(p => p.v === venueCode);
+  if(!venuePapers.length){
+    return '<div class="analytics-section"><h5>Publication analytics</h5><p class="analytics-note">Paper data is still loading or no indexed papers are available for this venue.</p></div>';
+  }
+
+  const years = uniqueSorted(venuePapers.map(p => p.y)).sort();
+  const byYear = years.map(year => {
+    const papers = venuePapers.filter(p => p.y === year);
+    return { year, papers, topics:topTopics(papers, 6) };
+  });
+  const latest = byYear[byYear.length - 1];
+  const previous = byYear.length > 1 ? byYear[byYear.length - 2] : null;
+  const latestCounts = topicCounts(latest.papers);
+  const previousCounts = previous ? topicCounts(previous.papers) : {};
+
+  const trends = Object.keys(latestCounts).map(word => {
+    const latestRate = latestCounts[word] / latest.papers.length;
+    const previousRate = previous && previous.papers.length
+      ? (previousCounts[word] || 0) / previous.papers.length : 0;
+    return { word, count:latestCounts[word], growth:latestRate - previousRate, latestRate };
+  }).filter(d => d.count >= Math.max(2, Math.ceil(latest.papers.length * 0.003)))
+    .sort((a,b) => b.growth - a.growth || b.latestRate - a.latestRate)
+    .slice(0, 8);
+
+  const suggestionWords = (previous ? trends : topTopics(latest.papers, 8).map(([word,count]) => ({word,count})))
+    .map(d => d.word);
+  const rows = byYear.slice().reverse().map(item =>
+    '<tr><td>' + escapeHtml(item.year) + '</td><td>' + item.papers.length.toLocaleString() + '</td><td>' +
+    item.topics.map(([word,count]) => escapeHtml(word) + ' (' + count + ')').join(', ') + '</td></tr>'
+  ).join('');
+  const tracks = new Set(venuePapers.map(p => p.tr)).size;
+
+  return '<div class="analytics-section">' +
+    '<h5>Publication analytics</h5>' +
+    '<p class="analytics-note">Calculated from indexed paper titles. Suggestions indicate publication trends, not official or guaranteed future conference tracks.</p>' +
+    '<div class="analytics-summary">' +
+      '<div class="analytics-card"><strong>' + venuePapers.length.toLocaleString() + '</strong><span>papers analyzed</span></div>' +
+      '<div class="analytics-card"><strong>' + years.length + '</strong><span>years analyzed</span></div>' +
+      '<div class="analytics-card"><strong>' + tracks + '</strong><span>proceedings tracks</span></div>' +
+    '</div>' +
+    '<table class="yearly-analytics"><thead><tr><th>Year</th><th>Papers</th><th>Leading title keywords</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+    '<p style="font-size:12px; margin:0 0 5px;"><strong>Trend-based directions for the next edition</strong></p>' +
+    '<div>' + suggestionWords.map(word => '<span class="trend-chip">' + escapeHtml(word) + '</span>').join('') + '</div>' +
+    '<p class="analytics-note" style="margin-top:8px;">' +
+      (previous ? 'Ranked by growth in title prevalence from ' + escapeHtml(previous.year) + ' to ' + escapeHtml(latest.year) + '.' : 'Only one indexed year is available, so the most prevalent current topics are shown.') +
+    '</p></div>';
+}
+
 function showVenueInfo(venueCode){
   const panel = document.getElementById('venueInfoPanel');
   const content = document.getElementById('venueInfoContent');
@@ -650,6 +751,8 @@ function showVenueInfo(venueCode){
     html += '<p style="font-size:13px; margin:0 0 12px;">' + escapeHtml(DEFAULT_VENUE_NOTE.system) + '</p>';
     html += '<p class="source-note">As of ' + escapeHtml(DEFAULT_VENUE_NOTE.asOf) + '. <a href="https://aclanthology.org/venues/' + encodeURIComponent(venueCode) + '/" target="_blank" rel="noopener">Browse this venue on the ACL Anthology &rarr;</a></p>';
   }
+
+  html += venueAnalyticsHtml(venueCode);
 
   content.innerHTML = html;
   panel.classList.add('open');
