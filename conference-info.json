@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-04T05:37:23.949833+00:00",
+  "generated_at": "2026-09-04T10:05:09.843511+00:00",
   "method": "Daily extraction from official venue or sponsoring-organization pages",
   "venues": {
     "acl": {
@@ -8,7 +8,7 @@
       "source_url": "https://2026.aclweb.org/calls/main_conference_papers/",
       "homepage_url": "https://2026.aclweb.org/",
       "guidelines_url": "https://2026.aclweb.org/calls/main_conference_papers/",
-      "checked_at": "2026-09-04T05:37:23.949833+00:00",
+      "checked_at": "2026-09-04T10:05:09.843511+00:00",
       "source_status": "official page checked",
       "page_title": "Main Conference",
       "dates": [
@@ -68,7 +68,7 @@
       "source_url": "https://2026.emnlp.org/calls/main_conference_papers/",
       "homepage_url": "https://2026.emnlp.org/",
       "guidelines_url": "https://2026.emnlp.org/calls/main_conference_papers/",
-      "checked_at": "2026-09-04T05:37:23.949833+00:00",
+      "checked_at": "2026-09-04T10:05:09.843511+00:00",
       "source_status": "official page checked",
       "page_title": "Call for Main Conference Papers",
       "dates": [
@@ -131,7 +131,7 @@
       "homepage_url": "https://www.aclweb.org/portal/naacl",
       "guidelines_url": "https://aclrollingreview.org/cfp",
       "announcement_pending": true,
-      "checked_at": "2026-09-04T05:37:23.949833+00:00",
+      "checked_at": "2026-09-04T10:05:09.843511+00:00",
       "source_status": "official page checked",
       "page_title": "The North American Chapter of the Association for Computational Linguistics | ACL Member Portal",
       "dates": [],
@@ -145,7 +145,7 @@
       "source_url": "https://2027.eacl.org/calls/papers/",
       "homepage_url": "https://2027.eacl.org/",
       "guidelines_url": "https://2027.eacl.org/calls/papers/",
-      "checked_at": "2026-09-04T05:37:23.949833+00:00",
+      "checked_at": "2026-09-04T10:05:09.843511+00:00",
       "source_status": "official page checked",
       "page_title": "EACL 2027 Call for Papers",
       "dates": [
@@ -205,7 +205,7 @@
       "source_url": "https://aclrollingreview.org/cfp",
       "homepage_url": "https://aclrollingreview.org/",
       "guidelines_url": "https://aclrollingreview.org/cfp",
-      "checked_at": "2026-09-04T05:37:23.949833+00:00",
+      "checked_at": "2026-09-04T10:05:09.843511+00:00",
       "source_status": "official page checked",
       "page_title": "CALL FOR PAPERS",
       "dates": [
@@ -261,7 +261,7 @@
       "source_url": "https://2027.coling-iccl.org/calls/main_conference_papers/",
       "homepage_url": "https://2027.coling-iccl.org/",
       "guidelines_url": "https://2027.coling-iccl.org/calls/main_conference_papers/",
-      "checked_at": "2026-09-04T05:37:23.949833+00:00",
+      "checked_at": "2026-09-04T10:05:09.843511+00:00",
       "source_status": "official page checked",
       "page_title": "Call for Main Conference Papers",
       "dates": [
@@ -279,7 +279,7 @@
       "source_url": "https://conll.org/",
       "homepage_url": "https://conll.org/",
       "guidelines_url": "https://conll.org/",
-      "checked_at": "2026-09-04T05:37:23.949833+00:00",
+      "checked_at": "2026-09-04T10:05:09.843511+00:00",
       "source_status": "official page checked",
       "page_title": "CoNLL 2026",
       "dates": [],
@@ -292,7 +292,7 @@
       "source_url": "https://www2.statmt.org/wmt26/",
       "homepage_url": "https://www2.statmt.org/wmt26/",
       "guidelines_url": "https://www2.statmt.org/wmt26/",
-      "checked_at": "2026-09-04T05:37:23.949833+00:00",
+      "checked_at": "2026-09-04T10:05:09.843511+00:00",
       "source_status": "official page checked",
       "page_title": "WMT 2026",
       "dates": [
@@ -316,7 +316,7 @@
       "source_url": "https://semeval.github.io/",
       "homepage_url": "https://semeval.github.io/",
       "guidelines_url": "https://semeval.github.io/paper-requirements.html",
-      "checked_at": "2026-09-04T05:37:23.949833+00:00",
+      "checked_at": "2026-09-04T10:05:09.843511+00:00",
       "source_status": "official page checked",
       "page_title": "SemEval",
       "dates": [],
@@ -329,7 +329,7 @@
       "source_url": "https://starsem2026.github.io/calls/",
       "homepage_url": "https://starsem2026.github.io/",
       "guidelines_url": "https://starsem2026.github.io/calls/",
-      "checked_at": "2026-09-04T05:37:23.949833+00:00",
+      "checked_at": "2026-09-04T10:05:09.843511+00:00",
       "source_status": "official page checked",
       "page_title": "Call for Papers",
       "dates": [],
@@ -377,7 +377,7 @@
       "source_url": "https://transacl.org/index.php/tacl/about/submissions",
       "homepage_url": "https://transacl.org/",
       "guidelines_url": "https://direct.mit.edu/tacl/pages/submission-guidelines",
-      "checked_at": "2026-09-04T05:37:23.949833+00:00",
+      "checked_at": "2026-09-04T10:05:09.843511+00:00",
       "source_status": "official page checked",
       "page_title": "Submissions",
       "dates": [
@@ -401,7 +401,7 @@
       "source_url": "https://iwslt.org/",
       "homepage_url": "https://iwslt.org/",
       "guidelines_url": "https://iwslt.org/faq/",
-      "checked_at": "2026-09-04T05:37:23.949833+00:00",
+      "checked_at": "2026-09-04T10:05:09.843511+00:00",
       "source_status": "official page checked",
       "page_title": "IWSLT 2027",
       "dates": [],
@@ -414,7 +414,7 @@
       "source_url": "https://lrec2026.info/calls/",
       "homepage_url": "https://lrec2026.info/",
       "guidelines_url": "https://lrec2026.info/authors-kit/",
-      "checked_at": "2026-09-04T05:37:23.949833+00:00",
+      "checked_at": "2026-09-04T10:05:09.843511+00:00",
       "source_status": "official page checked",
       "page_title": "Calls",
       "dates": [
@@ -433,7 +433,7 @@
       "source_url": "https://arabicnlp2026.sigarab.org/call-for-papers",
       "homepage_url": "https://arabicnlp2026.sigarab.org/",
       "guidelines_url": "https://arabicnlp2026.sigarab.org/call-for-papers",
-      "checked_at": "2026-09-04T05:37:23.949833+00:00",
+      "checked_at": "2026-09-04T10:05:09.843511+00:00",
       "source_status": "official page checked",
       "page_title": "Call for Papers",
       "dates": [
@@ -464,7 +464,7 @@
       "source_url": "https://2026.aaclnet.org/calls/main_conference_papers/",
       "homepage_url": "https://2026.aaclnet.org/",
       "guidelines_url": "https://2026.aaclnet.org/calls/main_conference_papers/",
-      "checked_at": "2026-09-04T05:37:23.949833+00:00",
+      "checked_at": "2026-09-04T10:05:09.843511+00:00",
       "source_status": "official page checked",
       "page_title": "Call for Main Conference Papers",
       "dates": [
