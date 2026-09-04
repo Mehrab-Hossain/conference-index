@@ -25,9 +25,30 @@ from bs4 import BeautifulSoup
 # ACL Anthology venues -- the script will then auto-discover all years
 # for that venue going forward without further code changes.
 TRACKED_VENUE_PREFIXES = [
-    "acl", "emnlp", "naacl", "eacl", "findings", "coling", "conll",
-    "wmt", "semeval", "starsem", "tacl", "iwslt", "lrec", "arabicnlp",
-    "ijcnlp",
+    # Flagship ACL-family conferences and journals
+    "acl", "emnlp", "naacl", "eacl", "findings", "coling", "aacl",
+    "conll", "tacl", "cl", "anlp",
+    # ACL Anthology's general "miscellaneous workshop" bucket (small,
+    # but catches papers that don't have their own dedicated venue code)
+    "ws",
+    # Major non-ACL-operated venues the Anthology hosts
+    "ijcnlp", "lrec", "amta", "eamt", "mtsummit", "nodalida", "ranlp",
+    "paclic", "konvens", "ccl", "clicit", "ijclclp", "jeptalnrecital",
+    "jlcl", "lilt", "tal", "alta", "hlt", "iwsds", "rocling", "nejlt",
+    "muc", "tinlap", "tipster", "aimecon",
+    # Shared-task / evaluation venues
+    "wmt", "semeval", "starsem", "iwslt", "arabicnlp",
+    # Well-established recurring workshops with their own venue codes
+    # (verified against the live Anthology repo; harmless to list ones
+    # that don't exist for a given year -- they're simply skipped)
+    "sigdial", "inlg", "vardial", "wat", "wnut", "fever", "mrl",
+    "blackboxnlp", "sigtyp", "sigmorphon", "signll", "loresmt",
+    "americasnlp", "crac", "nlp4convai", "sustainlp", "codi",
+    "textgraphs", "louhi", "clpsych", "repl4nlp", "nllp", "gem",
+    "tsar", "socialnlp", "case", "insights", "sigul", "ltedi",
+    "dravidianlangtech", "mwe", "argmining", "climatenlp", "trustnlp",
+    "privatenlp", "gebnlp", "finnlp", "nlp4dh", "latechclfl", "nlrse",
+    "genbench", "sdp", "cmcl", "law",
 ]
 
 # Only track collections from this year onward, to keep the dashboard's
