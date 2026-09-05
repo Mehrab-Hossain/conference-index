@@ -1467,27 +1467,6 @@ function setLoadingState(text, visible){
   el.style.display = visible ? 'block' : 'none';
 }
 
-function collectionYear(collId){
-  const m = /^(\d{4})\./.exec(collId);
-  return m ? parseInt(m[1], 10) : 0;
-}
-
-// Runs async tasks with a concurrency cap instead of firing everything
-// at once -- with 400+ venues tracked, unbounded parallel fetches would
-// queue behind the browser's per-origin connection limit anyway, so
-// capping it keeps behavior predictable and lets us control ordering.
-async function runWithConcurrency(items, limit, worker){
-  let index = 0;
-  async function next(){
-    while(index < items.length){
-      const i = index++;
-      await worker(items[i], i);
-    }
-  }
-  const runners = Array.from({length: Math.min(limit, items.length)}, next);
-  await Promise.all(runners);
-}
-
 async function loadAllPapers(forceRefresh){
   setLoadingState('Loading conference data\u2026', true);
   document.getElementById('refreshBtn').disabled = true;
@@ -1508,33 +1487,9 @@ async function loadAllPapers(forceRefresh){
     return;
   }
 
-  // Newest years first: the page becomes useful (recent papers, live
-  // keyword trends) well before every historical venue has finished
-  // loading in the background.
-  const collections = manifest.collections.slice().sort((a,b) => collectionYear(b) - collectionYear(a));
-
   const all = [];
   let done = 0;
-  let lastRenderAt = 0;
-  let firstRenderDone = false;
-
-  function refreshDerivedState(){
-    PAPERS = all.map((p,i)=>{
-      const record = {...p, id:i};
-      record._search = buildSearchDocument(record);
-      return record;
-    });
-    ALL_VENUES = uniqueSorted(PAPERS.map(p=>p.v));
-    ALL_YEARS = uniqueSorted(PAPERS.map(p=>p.y)).sort();
-    ALL_TRACKS = uniqueSorted(PAPERS.map(p=>p.tr));
-    renderChecks('venueChecks', ALL_VENUES, 'venues', v=>VENUE_LABELS[v]||v);
-    renderChecks('yearChecks', ALL_YEARS, 'years', v=>v);
-    renderChecks('trackChecks', ALL_TRACKS, 'tracks', v=>v);
-    renderStats();
-    renderAll();
-  }
-
-  await runWithConcurrency(collections, 12, async (collId) => {
+  await Promise.all(manifest.collections.map(async (collId) => {
     try{
       const records = await fetchCollection(collId, forceRefresh);
       all.push(...records);
@@ -1542,23 +1497,23 @@ async function loadAllPapers(forceRefresh){
       console.warn('Skipped ' + collId, e);
     }
     done++;
-    setLoadingState(
-      'Loading conference data\u2026 (' + done + '/' + collections.length + ' venues' +
-      (firstRenderDone ? ' \u2014 browse below while the rest loads' : '') + ')',
-      true
-    );
-    // Progressive rendering: show results as soon as we have some, then
-    // refresh at most a few times a second so 400+ completions don't
-    // trigger 400+ full re-renders.
-    const now = Date.now();
-    if(!firstRenderDone || now - lastRenderAt > 400 || done === collections.length){
-      refreshDerivedState();
-      lastRenderAt = now;
-      firstRenderDone = true;
-    }
-  });
+    setLoadingState('Loading conference data\u2026 (' + done + '/' + manifest.collections.length + ' venues)', true);
+  }));
 
-  refreshDerivedState();
+  PAPERS = all.map((p,i)=>{
+    const record = {...p, id:i};
+    record._search = buildSearchDocument(record);
+    return record;
+  });
+  ALL_VENUES = uniqueSorted(PAPERS.map(p=>p.v));
+  ALL_YEARS = uniqueSorted(PAPERS.map(p=>p.y)).sort();
+  ALL_TRACKS = uniqueSorted(PAPERS.map(p=>p.tr));
+
+  renderChecks('venueChecks', ALL_VENUES, 'venues', v=>VENUE_LABELS[v]||v);
+  renderChecks('yearChecks', ALL_YEARS, 'years', v=>v);
+  renderChecks('trackChecks', ALL_TRACKS, 'tracks', v=>v);
+  renderStats();
+  renderAll();
 
   const updatedEl = document.getElementById('lastUpdated');
   if(updatedEl){
