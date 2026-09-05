@@ -581,9 +581,7 @@ let PAPERS = [];
 const VENUE_LABELS = {
   acl:'ACL', emnlp:'EMNLP', naacl:'NAACL', findings:'Findings', eacl:'EACL',
   coling:'COLING', conll:'CoNLL', wmt:'WMT', semeval:'SemEval', starsem:'*SEM',
-  tacl:'TACL', iwslt:'IWSLT', lrec:'LREC', ijcnlp:'AACL-IJCNLP', arabicnlp:'ArabicNLP',
-  chi:'ACM CHI', iui:'ACM IUI', cscw:'ACM CSCW', hcomp:'AAAI HCOMP', facct:'ACM FAccT',
-  aies:'AIES', aamas:'AAMAS', neurips:'NeurIPS', icml:'ICML', iclr:'ICLR', aaai:'AAAI', ijcai:'IJCAI'
+  tacl:'TACL', iwslt:'IWSLT', lrec:'LREC', ijcnlp:'AACL-IJCNLP', arabicnlp:'ArabicNLP'
 };
 function venueLabel(p){
   if(p.v === 'findings') return 'Findings of ' + (VENUE_LABELS[p.tr] || p.tr.toUpperCase());
@@ -1401,18 +1399,6 @@ async function fetchConferenceInfo(){
   return data.venues || {};
 }
 
-async function fetchAcmPapers(){
-  // Same-origin file, generated server-side by the GitHub Action (see
-  // scripts/update_manifest.py -> refresh_dblp_papers). Not a live
-  // client-side fetch to DBLP -- DBLP doesn't allow that from a
-  // browser. This file just happens to live in the same repo, so
-  // reading it is a normal same-origin request, refreshed daily.
-  const res = await fetch('./acm-papers.json', { cache:'no-store' });
-  if(!res.ok) throw new Error('acm papers fetch failed: ' + res.status);
-  const data = await res.json();
-  return data.papers || [];
-}
-
 function parseCollectionXML(xmlText){
   const doc = new DOMParser().parseFromString(xmlText, 'text/xml');
   const root = doc.documentElement;
@@ -1506,22 +1492,16 @@ async function loadAllPapers(forceRefresh){
   setLoadingState('Loading conference data\u2026', true);
   document.getElementById('refreshBtn').disabled = true;
   let manifest;
-  let acmPapers = [];
   try{
     const loaded = await Promise.all([
       fetchManifest(),
       fetchConferenceInfo().catch(error => {
         console.warn('Official conference information unavailable', error);
         return {};
-      }),
-      fetchAcmPapers().catch(error => {
-        console.warn('ACM/ML paper feed unavailable', error);
-        return [];
       })
     ]);
     manifest = loaded[0];
     OFFICIAL_CONFERENCE_INFO = loaded[1];
-    acmPapers = loaded[2];
   } catch(e){
     setLoadingState('Could not load the venue manifest. Check your connection and reload.', true);
     document.getElementById('refreshBtn').disabled = false;
@@ -1533,7 +1513,7 @@ async function loadAllPapers(forceRefresh){
   // loading in the background.
   const collections = manifest.collections.slice().sort((a,b) => collectionYear(b) - collectionYear(a));
 
-  const all = acmPapers.slice();
+  const all = [];
   let done = 0;
   let lastRenderAt = 0;
   let firstRenderDone = false;
