@@ -283,6 +283,144 @@ def refresh_conference_info(output_path):
         handle.write("\n")
 
 
+# --------------------------------------------------------------------
+# ACM/ML venues that aren't on the ACL Anthology (no CORS-friendly raw
+# data source exists for them), scraped from DBLP instead. DBLP does
+# NOT send CORS headers, so this can only run here -- server-side, in
+# the GitHub Action -- never as a live client-side fetch. The output is
+# a plain same-origin JSON file the dashboard reads like any other file
+# in the repo, exactly like conference-info.json.
+#
+# NOTE ON CONFIDENCE: this scraper's HTML-parsing assumptions (DBLP's
+# `li.entry` / `span.title` structure) are based on DBLP's long-standing,
+# well-documented page layout, but have not been exercised against a
+# live fetch during development (network restrictions in the dev
+# environment). Run the workflow once manually (Actions tab ->
+# "Refresh venue manifest" -> "Run workflow") and check its logs / the
+# resulting acm-papers.json before trusting this in production. If a
+# venue silently returns 0 papers, DBLP likely restructured that page.
+# --------------------------------------------------------------------
+
+DBLP_VENUES = {
+    "chi": {"name": "ACM CHI", "dblp_key": "chi", "years": None},
+    "iui": {"name": "ACM IUI", "dblp_key": "iui", "years": None},
+    "cscw": {"name": "ACM CSCW", "dblp_key": "cscw", "years": None},
+    "hcomp": {"name": "AAAI HCOMP", "dblp_key": "hcomp", "years": None},
+    "facct": {"name": "ACM FAccT", "dblp_key": "fat", "years": None},
+    "aies": {"name": "AIES", "dblp_key": "aies", "years": None},
+    "aamas": {"name": "AAMAS", "dblp_key": "atal", "years": None},
+    "neurips": {"name": "NeurIPS", "dblp_key": "nips", "years": None},
+    "icml": {"name": "ICML", "dblp_key": "icml", "years": None},
+    "iclr": {"name": "ICLR", "dblp_key": "iclr", "years": None},
+    "aaai": {"name": "AAAI", "dblp_key": "aaai", "years": None},
+    "ijcai": {"name": "IJCAI", "dblp_key": "ijcai", "years": None},
+}
+
+# How many recent years to try per venue when `years` isn't set above.
+# Kept short deliberately: each year is a separate DBLP page fetch, and
+# DBLP is a shared community resource -- be a polite, low-volume client.
+DBLP_RECENT_YEARS = 3
+
+
+def fetch_dblp_venue_year(venue_code, dblp_key, year, headers):
+    """Fetch and parse one year of one DBLP-indexed venue. Returns a list
+    of paper records in the same shape as ACL Anthology records, or an
+    empty list if the page doesn't exist / doesn't parse (never raises
+    for a routine 404 -- a venue simply not having papers for a given
+    year is normal, not an error).
+
+    `venue_code` is our internal short code (e.g. "aamas") used for
+    display/filtering; `dblp_key` is DBLP's own series key for that venue
+    (e.g. "atal" for AAMAS) used only to build the fetch URL -- these can
+    differ, so don't conflate them in the output record's `v` field."""
+    url = f"https://dblp.org/db/conf/{dblp_key}/{dblp_key}{year}.html"
+    try:
+        response = requests.get(url, headers=headers, timeout=30)
+        if response.status_code == 404:
+            return []
+        response.raise_for_status()
+    except Exception as error:
+        print(f"  DBLP fetch failed for {venue_code} ({dblp_key}) {year}: {error}", file=sys.stderr)
+        return []
+
+    soup = BeautifulSoup(response.text, "html.parser")
+    records = []
+    for entry in soup.select("li.entry"):
+        title_span = entry.select_one("span.title")
+        if title_span is None:
+            continue
+        title = clean_text(title_span.get_text(" ", strip=True)).rstrip(".")
+        if not title:
+            continue
+        authors = [
+            clean_text(a.get_text(" ", strip=True))
+            for a in entry.select('span[itemprop="author"] span[itemprop="name"]')
+        ]
+        a_str = ", ".join(authors[:3]) + (" et al." if len(authors) > 3 else "")
+
+        link = url
+        ee_link = entry.select_one("li.ee a")
+        if ee_link and ee_link.get("href"):
+            link = ee_link["href"]
+        else:
+            rec_link = entry.select_one('a[href^="https://dblp.org/rec/"]')
+            if rec_link and rec_link.get("href"):
+                link = rec_link["href"]
+
+        records.append({
+            "t": title,
+            "a": a_str,
+            "v": venue_code,
+            "tr": "paper",
+            "y": str(year),
+            "u": link,
+        })
+    return records
+
+
+def refresh_dblp_papers(output_path):
+    previous_records = []
+    if os.path.exists(output_path):
+        try:
+            with open(output_path, encoding="utf-8") as handle:
+                previous_records = json.load(handle).get("papers", [])
+        except (OSError, ValueError):
+            pass
+    previous_by_venue = {}
+    for record in previous_records:
+        previous_by_venue.setdefault(record.get("v"), []).append(record)
+
+    checked_at = datetime.now(timezone.utc).isoformat()
+    headers = {"User-Agent": "conference-index/1.0 (+GitHub Pages research dashboard)"}
+    current_year = datetime.now(timezone.utc).year
+    years_to_try = list(range(current_year, current_year - DBLP_RECENT_YEARS, -1))
+
+    all_records = []
+    for code, config in DBLP_VENUES.items():
+        years = config["years"] or years_to_try
+        venue_records = []
+        for year in years:
+            venue_records.extend(fetch_dblp_venue_year(code, config["dblp_key"], year, headers))
+        if venue_records:
+            print(f"DBLP: {code}: {len(venue_records)} papers across {years}")
+            all_records.extend(venue_records)
+        else:
+            fallback = previous_by_venue.get(code, [])
+            print(f"DBLP: {code}: 0 papers fetched -- keeping {len(fallback)} from last successful run")
+            all_records.extend(fallback)
+
+    payload = {
+        "generated_at": checked_at,
+        "method": "Scraped server-side from DBLP (dblp.org) by the GitHub Action -- "
+                  "not fetched live by visitors' browsers, since DBLP doesn't allow "
+                  "cross-origin browser requests.",
+        "papers": all_records,
+    }
+    with open(output_path, "w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2, ensure_ascii=False)
+        handle.write("\n")
+
+
 def list_repo_xml_files():
     """List every file in acl-org/acl-anthology's data/xml directory via
     the GitHub Trees API (one call, not one call per file)."""
@@ -321,6 +459,7 @@ def main():
     repo_root = os.path.dirname(script_dir) if os.path.basename(script_dir) == "scripts" else script_dir
     manifest_path = os.path.join(repo_root, "manifest.json")
     conference_info_path = os.path.join(repo_root, "conference-info.json")
+    acm_papers_path = os.path.join(repo_root, "acm-papers.json")
 
     try:
         xml_paths = list_repo_xml_files()
@@ -349,6 +488,8 @@ def main():
     print(f"Wrote {len(collections)} collections to manifest.json")
     refresh_conference_info(conference_info_path)
     print("Wrote official conference information to conference-info.json")
+    refresh_dblp_papers(acm_papers_path)
+    print("Wrote DBLP-sourced ACM/ML papers to acm-papers.json")
 
 
 if __name__ == "__main__":
