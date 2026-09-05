@@ -15,7 +15,6 @@ import json
 import os
 import re
 import sys
-import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 
@@ -284,221 +283,6 @@ def refresh_conference_info(output_path):
         handle.write("\n")
 
 
-# --------------------------------------------------------------------
-# ACM/ML venues that aren't on the ACL Anthology (no CORS-friendly raw
-# data source exists for them), scraped from DBLP instead. DBLP does
-# NOT send CORS headers, so this can only run here -- server-side, in
-# the GitHub Action -- never as a live client-side fetch. The output is
-# a plain same-origin JSON file the dashboard reads like any other file
-# in the repo, exactly like conference-info.json.
-#
-# NOTE ON CONFIDENCE: this scraper's HTML-parsing assumptions (DBLP's
-# `li.entry` / `span.title` structure) are based on DBLP's long-standing,
-# well-documented page layout, but have not been exercised against a
-# live fetch during development (network restrictions in the dev
-# environment). Run the workflow once manually (Actions tab ->
-# "Refresh venue manifest" -> "Run workflow") and check its logs / the
-# resulting acm-papers.json before trusting this in production. If a
-# venue silently returns 0 papers, DBLP likely restructured that page.
-# --------------------------------------------------------------------
-
-DBLP_VENUES = {
-    "chi": {"name": "ACM CHI", "dblp_key": "chi", "years": None},
-    "iui": {"name": "ACM IUI", "dblp_key": "iui", "years": None},
-    "cscw": {"name": "ACM CSCW", "dblp_key": "cscw", "years": None},
-    "hcomp": {"name": "AAAI HCOMP", "dblp_key": "hcomp", "years": None},
-    "facct": {"name": "ACM FAccT", "dblp_key": "fat", "years": None},
-    "aies": {"name": "AIES", "dblp_key": "aies", "years": None},
-    "aamas": {"name": "AAMAS", "dblp_key": "atal", "years": None},
-    "neurips": {"name": "NeurIPS", "dblp_key": "nips", "years": None},
-    "icml": {"name": "ICML", "dblp_key": "icml", "years": None},
-    "iclr": {"name": "ICLR", "dblp_key": "iclr", "years": None},
-    "aaai": {"name": "AAAI", "dblp_key": "aaai", "years": None},
-    "ijcai": {"name": "IJCAI", "dblp_key": "ijcai", "years": None},
-}
-
-# How many recent years to try per venue when `years` isn't set above.
-# Kept short deliberately: each year is a separate DBLP page fetch, and
-# DBLP is a shared community resource -- be a polite, low-volume client.
-DBLP_RECENT_YEARS = 3
-
-
-def fetch_dblp_venue_year(venue_code, dblp_key, year, headers):
-    """Fetch and parse one year of one DBLP-indexed venue. Returns a list
-    of paper records in the same shape as ACL Anthology records, or an
-    empty list if the page doesn't exist / doesn't parse (never raises
-    for a routine 404 -- a venue simply not having papers for a given
-    year is normal, not an error).
-
-    `venue_code` is our internal short code (e.g. "aamas") used for
-    display/filtering; `dblp_key` is DBLP's own series key for that venue
-    (e.g. "atal" for AAMAS) used only to build the fetch URL -- these can
-    differ, so don't conflate them in the output record's `v` field.
-
-    Returns (records, outcome) where outcome is one of:
-      "ok"            -- fetched and parsed successfully (records may
-                          still be empty if the page had no entries)
-      "not_found"     -- DBLP returned 404; this venue/year combo just
-                          doesn't exist, which is normal and expected
-      "rate_limited"  -- DBLP returned 429 (their documented behavior
-                          for excessive request volume, per their FAQ)
-      "unreachable"   -- connection failed outright (timeout / refused /
-                          DNS failure) -- this is the pattern consistent
-                          with a network-level block of the runner's IP
-                          range, NOT DBLP's documented rate-limiting
-                          (which returns 429, not a dropped connection)
-      "server_error"  -- DBLP responded, but with a 5xx (e.g. 503) even
-                          after retries. Unlike "unreachable", the
-                          connection itself worked -- this could be a
-                          real (possibly transient) problem on DBLP's
-                          end, or a soft anti-bot response on that
-                          specific path. Doesn't count toward the
-                          network-block diagnostic below, since the
-                          network path clearly isn't blocked.
-    """
-    url = f"https://dblp.org/db/conf/{dblp_key}/{dblp_key}{year}.html"
-    max_attempts = 3
-    last_error = None
-
-    for attempt in range(1, max_attempts + 1):
-        try:
-            response = requests.get(url, headers=headers, timeout=20)
-        except requests.exceptions.RequestException as error:
-            last_error = error
-            if attempt < max_attempts:
-                time.sleep(2 ** attempt)  # 2s, 4s backoff
-                continue
-            print(f"  UNREACHABLE: {venue_code} ({dblp_key}) {year} after {max_attempts} attempts: {error}", file=sys.stderr)
-            return [], "unreachable"
-
-        if response.status_code == 404:
-            return [], "not_found"
-        if response.status_code == 429:
-            retry_after = response.headers.get("Retry-After")
-            print(f"  RATE LIMITED: {venue_code} ({dblp_key}) {year} -- DBLP asked us to wait {retry_after or 'some time'}", file=sys.stderr)
-            return [], "rate_limited"
-        if response.status_code >= 500:
-            # Server-side errors (503 Service Unavailable, etc.) are often
-            # transient -- retry with backoff same as a connection failure,
-            # but track separately: a real HTTP response (even an error
-            # one) means the connection itself is fine, so this should
-            # NOT count toward the "network block" diagnostic below.
-            if attempt < max_attempts:
-                print(f"  Server error {response.status_code} for {venue_code} ({dblp_key}) {year}, retrying...", file=sys.stderr)
-                time.sleep(2 ** attempt)
-                continue
-            print(f"  SERVER ERROR: {venue_code} ({dblp_key}) {year} still {response.status_code} after {max_attempts} attempts", file=sys.stderr)
-            return [], "server_error"
-        try:
-            response.raise_for_status()
-        except Exception as error:
-            print(f"  DBLP returned an error for {venue_code} ({dblp_key}) {year}: {error}", file=sys.stderr)
-            return [], "error"
-        break  # success
-
-    soup = BeautifulSoup(response.text, "html.parser")
-    records = []
-    for entry in soup.select("li.entry"):
-        title_span = entry.select_one("span.title")
-        if title_span is None:
-            continue
-        title = clean_text(title_span.get_text(" ", strip=True)).rstrip(".")
-        if not title:
-            continue
-        authors = [
-            clean_text(a.get_text(" ", strip=True))
-            for a in entry.select('span[itemprop="author"] span[itemprop="name"]')
-        ]
-        a_str = ", ".join(authors[:3]) + (" et al." if len(authors) > 3 else "")
-
-        link = url
-        ee_link = entry.select_one("li.ee a")
-        if ee_link and ee_link.get("href"):
-            link = ee_link["href"]
-        else:
-            rec_link = entry.select_one('a[href^="https://dblp.org/rec/"]')
-            if rec_link and rec_link.get("href"):
-                link = rec_link["href"]
-
-        records.append({
-            "t": title,
-            "a": a_str,
-            "v": venue_code,
-            "tr": "paper",
-            "y": str(year),
-            "u": link,
-        })
-    return records, "ok"
-
-
-def refresh_dblp_papers(output_path):
-    previous_records = []
-    if os.path.exists(output_path):
-        try:
-            with open(output_path, encoding="utf-8") as handle:
-                previous_records = json.load(handle).get("papers", [])
-        except (OSError, ValueError):
-            pass
-    previous_by_venue = {}
-    for record in previous_records:
-        previous_by_venue.setdefault(record.get("v"), []).append(record)
-
-    checked_at = datetime.now(timezone.utc).isoformat()
-    # DBLP's own fair-use policy (dblp1.uni-trier.de/faq) asks for an
-    # identifiable User-Agent with a contact/reference URL, and at least
-    # one second between requests -- both followed here.
-    headers = {"User-Agent": "conference-index-bot/1.0 (+https://github.com/Mehrab-Hossain/conference-index)"}
-    current_year = datetime.now(timezone.utc).year
-    years_to_try = list(range(current_year, current_year - DBLP_RECENT_YEARS, -1))
-
-    all_records = []
-    outcome_counts = {}
-    for code, config in DBLP_VENUES.items():
-        years = config["years"] or years_to_try
-        venue_records = []
-        for year in years:
-            records, outcome = fetch_dblp_venue_year(code, config["dblp_key"], year, headers)
-            venue_records.extend(records)
-            outcome_counts[outcome] = outcome_counts.get(outcome, 0) + 1
-            time.sleep(1.5)  # stay well under DBLP's fair-use rate limit
-        if venue_records:
-            print(f"DBLP: {code}: {len(venue_records)} papers across {years}")
-            all_records.extend(venue_records)
-        else:
-            fallback = previous_by_venue.get(code, [])
-            print(f"DBLP: {code}: 0 papers fetched -- keeping {len(fallback)} from last successful run")
-            all_records.extend(fallback)
-
-    # Diagnostic verdict: if almost everything came back "unreachable"
-    # (connection failed outright) rather than a mix of "ok" and
-    # "not_found" (normal -- not every venue publishes every year),
-    # that's the signature of a network-level block of this runner's IP,
-    # not a data problem. Surface that plainly instead of just going
-    # quiet -- see the module docstring for what to do about it.
-    total_checks = sum(outcome_counts.values())
-    unreachable = outcome_counts.get("unreachable", 0)
-    if total_checks and unreachable / total_checks > 0.5:
-        print(
-            f"\nWARNING: {unreachable}/{total_checks} DBLP requests were unreachable "
-            "(connection timed out/refused, not a normal 404). This pattern usually "
-            "means DBLP is blocking this network's IP range, not that the data is "
-            "missing. Falling back to last-known-good data for affected venues. "
-            "See the DBLP_VENUES section of this script for options.",
-            file=sys.stderr,
-        )
-
-    payload = {
-        "generated_at": checked_at,
-        "method": "Scraped server-side from DBLP (dblp.org) by the GitHub Action -- "
-                  "not fetched live by visitors' browsers, since DBLP doesn't allow "
-                  "cross-origin browser requests.",
-        "papers": all_records,
-    }
-    with open(output_path, "w", encoding="utf-8") as handle:
-        json.dump(payload, handle, indent=2, ensure_ascii=False)
-        handle.write("\n")
-
-
 def list_repo_xml_files():
     """List every file in acl-org/acl-anthology's data/xml directory via
     the GitHub Trees API (one call, not one call per file)."""
@@ -537,7 +321,6 @@ def main():
     repo_root = os.path.dirname(script_dir) if os.path.basename(script_dir) == "scripts" else script_dir
     manifest_path = os.path.join(repo_root, "manifest.json")
     conference_info_path = os.path.join(repo_root, "conference-info.json")
-    acm_papers_path = os.path.join(repo_root, "acm-papers.json")
 
     try:
         xml_paths = list_repo_xml_files()
@@ -566,8 +349,6 @@ def main():
     print(f"Wrote {len(collections)} collections to manifest.json")
     refresh_conference_info(conference_info_path)
     print("Wrote official conference information to conference-info.json")
-    refresh_dblp_papers(acm_papers_path)
-    print("Wrote DBLP-sourced ACM/ML papers to acm-papers.json")
 
 
 if __name__ == "__main__":
