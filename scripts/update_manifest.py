@@ -469,21 +469,32 @@ def refresh_dblp_papers(output_path):
             print(f"DBLP: {code}: 0 papers fetched -- keeping {len(fallback)} from last successful run")
             all_records.extend(fallback)
 
-    # Diagnostic verdict: if almost everything came back "unreachable"
-    # (connection failed outright) rather than a mix of "ok" and
-    # "not_found" (normal -- not every venue publishes every year),
-    # that's the signature of a network-level block of this runner's IP,
-    # not a data problem. Surface that plainly instead of just going
-    # quiet -- see the module docstring for what to do about it.
+    # Diagnostic verdict: if a large share of requests came back
+    # "unreachable" (dropped connection) or "server_error" (persistent
+    # 5xx after retries) rather than a mix of "ok" and "not_found"
+    # (normal -- not every venue publishes every year), that's the
+    # signature of DBLP (or a WAF in front of it) blocking this
+    # runner's traffic, not a data problem. Both failure modes have
+    # been observed in practice for this exact setup: a hard connection
+    # timeout on one run, a persistent 503 across multiple *different*,
+    # definitely-correctly-spelled venues on another. Treat them as the
+    # same underlying problem rather than debugging each venue in
+    # isolation -- see the module docstring for what to do about it.
     total_checks = sum(outcome_counts.values())
-    unreachable = outcome_counts.get("unreachable", 0)
-    if total_checks and unreachable / total_checks > 0.5:
+    blocked_like = outcome_counts.get("unreachable", 0) + outcome_counts.get("server_error", 0)
+    if total_checks and blocked_like / total_checks > 0.3:
         print(
-            f"\nWARNING: {unreachable}/{total_checks} DBLP requests were unreachable "
-            "(connection timed out/refused, not a normal 404). This pattern usually "
-            "means DBLP is blocking this network's IP range, not that the data is "
-            "missing. Falling back to last-known-good data for affected venues. "
-            "See the DBLP_VENUES section of this script for options.",
+            f"\nWARNING: {blocked_like}/{total_checks} DBLP requests failed with a "
+            "connection timeout or a persistent 5xx error (not a normal 404). When "
+            "this pattern spans multiple different, correctly-spelled venues, it "
+            "means DBLP (or a WAF in front of it) is blocking or soft-blocking this "
+            "runner's traffic -- not that the requested pages don't exist. Retrying "
+            "harder from the same network won't fix this; the only paths forward are "
+            "(1) run this script from a non-datacenter network (e.g. your own machine) "
+            "and commit the result manually, or (2) accept that ACM/ML paper coverage "
+            "stays at whatever was last fetched successfully, while the ACL Anthology "
+            "side (a different data source entirely) keeps updating normally. "
+            "Falling back to last-known-good data for affected venues.",
             file=sys.stderr,
         )
 
