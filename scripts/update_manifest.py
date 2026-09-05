@@ -347,6 +347,14 @@ def fetch_dblp_venue_year(venue_code, dblp_key, year, headers):
                           with a network-level block of the runner's IP
                           range, NOT DBLP's documented rate-limiting
                           (which returns 429, not a dropped connection)
+      "server_error"  -- DBLP responded, but with a 5xx (e.g. 503) even
+                          after retries. Unlike "unreachable", the
+                          connection itself worked -- this could be a
+                          real (possibly transient) problem on DBLP's
+                          end, or a soft anti-bot response on that
+                          specific path. Doesn't count toward the
+                          network-block diagnostic below, since the
+                          network path clearly isn't blocked.
     """
     url = f"https://dblp.org/db/conf/{dblp_key}/{dblp_key}{year}.html"
     max_attempts = 3
@@ -369,6 +377,18 @@ def fetch_dblp_venue_year(venue_code, dblp_key, year, headers):
             retry_after = response.headers.get("Retry-After")
             print(f"  RATE LIMITED: {venue_code} ({dblp_key}) {year} -- DBLP asked us to wait {retry_after or 'some time'}", file=sys.stderr)
             return [], "rate_limited"
+        if response.status_code >= 500:
+            # Server-side errors (503 Service Unavailable, etc.) are often
+            # transient -- retry with backoff same as a connection failure,
+            # but track separately: a real HTTP response (even an error
+            # one) means the connection itself is fine, so this should
+            # NOT count toward the "network block" diagnostic below.
+            if attempt < max_attempts:
+                print(f"  Server error {response.status_code} for {venue_code} ({dblp_key}) {year}, retrying...", file=sys.stderr)
+                time.sleep(2 ** attempt)
+                continue
+            print(f"  SERVER ERROR: {venue_code} ({dblp_key}) {year} still {response.status_code} after {max_attempts} attempts", file=sys.stderr)
+            return [], "server_error"
         try:
             response.raise_for_status()
         except Exception as error:
