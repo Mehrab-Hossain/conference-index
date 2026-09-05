@@ -15,6 +15,7 @@ import json
 import os
 import re
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 
@@ -332,16 +333,48 @@ def fetch_dblp_venue_year(venue_code, dblp_key, year, headers):
     `venue_code` is our internal short code (e.g. "aamas") used for
     display/filtering; `dblp_key` is DBLP's own series key for that venue
     (e.g. "atal" for AAMAS) used only to build the fetch URL -- these can
-    differ, so don't conflate them in the output record's `v` field."""
+    differ, so don't conflate them in the output record's `v` field.
+
+    Returns (records, outcome) where outcome is one of:
+      "ok"            -- fetched and parsed successfully (records may
+                          still be empty if the page had no entries)
+      "not_found"     -- DBLP returned 404; this venue/year combo just
+                          doesn't exist, which is normal and expected
+      "rate_limited"  -- DBLP returned 429 (their documented behavior
+                          for excessive request volume, per their FAQ)
+      "unreachable"   -- connection failed outright (timeout / refused /
+                          DNS failure) -- this is the pattern consistent
+                          with a network-level block of the runner's IP
+                          range, NOT DBLP's documented rate-limiting
+                          (which returns 429, not a dropped connection)
+    """
     url = f"https://dblp.org/db/conf/{dblp_key}/{dblp_key}{year}.html"
-    try:
-        response = requests.get(url, headers=headers, timeout=30)
+    max_attempts = 3
+    last_error = None
+
+    for attempt in range(1, max_attempts + 1):
+        try:
+            response = requests.get(url, headers=headers, timeout=20)
+        except requests.exceptions.RequestException as error:
+            last_error = error
+            if attempt < max_attempts:
+                time.sleep(2 ** attempt)  # 2s, 4s backoff
+                continue
+            print(f"  UNREACHABLE: {venue_code} ({dblp_key}) {year} after {max_attempts} attempts: {error}", file=sys.stderr)
+            return [], "unreachable"
+
         if response.status_code == 404:
-            return []
-        response.raise_for_status()
-    except Exception as error:
-        print(f"  DBLP fetch failed for {venue_code} ({dblp_key}) {year}: {error}", file=sys.stderr)
-        return []
+            return [], "not_found"
+        if response.status_code == 429:
+            retry_after = response.headers.get("Retry-After")
+            print(f"  RATE LIMITED: {venue_code} ({dblp_key}) {year} -- DBLP asked us to wait {retry_after or 'some time'}", file=sys.stderr)
+            return [], "rate_limited"
+        try:
+            response.raise_for_status()
+        except Exception as error:
+            print(f"  DBLP returned an error for {venue_code} ({dblp_key}) {year}: {error}", file=sys.stderr)
+            return [], "error"
+        break  # success
 
     soup = BeautifulSoup(response.text, "html.parser")
     records = []
@@ -375,7 +408,7 @@ def fetch_dblp_venue_year(venue_code, dblp_key, year, headers):
             "y": str(year),
             "u": link,
         })
-    return records
+    return records, "ok"
 
 
 def refresh_dblp_papers(output_path):
@@ -391,16 +424,23 @@ def refresh_dblp_papers(output_path):
         previous_by_venue.setdefault(record.get("v"), []).append(record)
 
     checked_at = datetime.now(timezone.utc).isoformat()
-    headers = {"User-Agent": "conference-index/1.0 (+GitHub Pages research dashboard)"}
+    # DBLP's own fair-use policy (dblp1.uni-trier.de/faq) asks for an
+    # identifiable User-Agent with a contact/reference URL, and at least
+    # one second between requests -- both followed here.
+    headers = {"User-Agent": "conference-index-bot/1.0 (+https://github.com/Mehrab-Hossain/conference-index)"}
     current_year = datetime.now(timezone.utc).year
     years_to_try = list(range(current_year, current_year - DBLP_RECENT_YEARS, -1))
 
     all_records = []
+    outcome_counts = {}
     for code, config in DBLP_VENUES.items():
         years = config["years"] or years_to_try
         venue_records = []
         for year in years:
-            venue_records.extend(fetch_dblp_venue_year(code, config["dblp_key"], year, headers))
+            records, outcome = fetch_dblp_venue_year(code, config["dblp_key"], year, headers)
+            venue_records.extend(records)
+            outcome_counts[outcome] = outcome_counts.get(outcome, 0) + 1
+            time.sleep(1.5)  # stay well under DBLP's fair-use rate limit
         if venue_records:
             print(f"DBLP: {code}: {len(venue_records)} papers across {years}")
             all_records.extend(venue_records)
@@ -408,6 +448,24 @@ def refresh_dblp_papers(output_path):
             fallback = previous_by_venue.get(code, [])
             print(f"DBLP: {code}: 0 papers fetched -- keeping {len(fallback)} from last successful run")
             all_records.extend(fallback)
+
+    # Diagnostic verdict: if almost everything came back "unreachable"
+    # (connection failed outright) rather than a mix of "ok" and
+    # "not_found" (normal -- not every venue publishes every year),
+    # that's the signature of a network-level block of this runner's IP,
+    # not a data problem. Surface that plainly instead of just going
+    # quiet -- see the module docstring for what to do about it.
+    total_checks = sum(outcome_counts.values())
+    unreachable = outcome_counts.get("unreachable", 0)
+    if total_checks and unreachable / total_checks > 0.5:
+        print(
+            f"\nWARNING: {unreachable}/{total_checks} DBLP requests were unreachable "
+            "(connection timed out/refused, not a normal 404). This pattern usually "
+            "means DBLP is blocking this network's IP range, not that the data is "
+            "missing. Falling back to last-known-good data for affected venues. "
+            "See the DBLP_VENUES section of this script for options.",
+            file=sys.stderr,
+        )
 
     payload = {
         "generated_at": checked_at,
