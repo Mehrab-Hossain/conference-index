@@ -359,6 +359,17 @@ def fetch_dblp_venue_year(venue_code, dblp_key, year, headers):
     url = f"https://dblp.org/db/conf/{dblp_key}/{dblp_key}{year}.html"
     max_attempts = 3
     last_error = None
+    # Longer, more generous backoff than a typical transient-error retry.
+    # Evidence from real runs (see git history / conversation with the
+    # maintainer around 2026-09-05): venues processed early in a run
+    # would fail with 503 while the last venue processed (after several
+    # minutes of accumulated delay from earlier retries) succeeded
+    # cleanly. That pattern -- failures cluster early, success appears
+    # once enough wall-clock time has passed -- looks like a rolling
+    # rate-limit window, not a blanket IP block. A short 2s/4s backoff
+    # just re-hits the same still-active window; waiting longer gives it
+    # an actual chance to clear.
+    retry_delays = [15, 45]  # seconds, for attempts 1 and 2
 
     for attempt in range(1, max_attempts + 1):
         try:
@@ -366,7 +377,7 @@ def fetch_dblp_venue_year(venue_code, dblp_key, year, headers):
         except requests.exceptions.RequestException as error:
             last_error = error
             if attempt < max_attempts:
-                time.sleep(2 ** attempt)  # 2s, 4s backoff
+                time.sleep(retry_delays[attempt - 1])
                 continue
             print(f"  UNREACHABLE: {venue_code} ({dblp_key}) {year} after {max_attempts} attempts: {error}", file=sys.stderr)
             return [], "unreachable"
@@ -384,8 +395,8 @@ def fetch_dblp_venue_year(venue_code, dblp_key, year, headers):
             # one) means the connection itself is fine, so this should
             # NOT count toward the "network block" diagnostic below.
             if attempt < max_attempts:
-                print(f"  Server error {response.status_code} for {venue_code} ({dblp_key}) {year}, retrying...", file=sys.stderr)
-                time.sleep(2 ** attempt)
+                print(f"  Server error {response.status_code} for {venue_code} ({dblp_key}) {year}, waiting {retry_delays[attempt-1]}s before retrying...", file=sys.stderr)
+                time.sleep(retry_delays[attempt - 1])
                 continue
             print(f"  SERVER ERROR: {venue_code} ({dblp_key}) {year} still {response.status_code} after {max_attempts} attempts", file=sys.stderr)
             return [], "server_error"
@@ -460,7 +471,10 @@ def refresh_dblp_papers(output_path):
             records, outcome = fetch_dblp_venue_year(code, config["dblp_key"], year, headers)
             venue_records.extend(records)
             outcome_counts[outcome] = outcome_counts.get(outcome, 0) + 1
-            time.sleep(1.5)  # stay well under DBLP's fair-use rate limit
+            time.sleep(4)  # stay well under DBLP's fair-use rate limit -- see
+            # note on retry_delays above; a rolling rate-limit window is the
+            # leading theory, so a more generous steady-state gap (not just
+            # longer retries) reduces the chance of triggering it at all
         if venue_records:
             print(f"DBLP: {code}: {len(venue_records)} papers across {years}")
             all_records.extend(venue_records)
