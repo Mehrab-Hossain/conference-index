@@ -32,12 +32,12 @@ jobs:
 
       - name: Commit changes if generated data changed
         run: |
-          if git diff --quiet manifest.json conference-info.json; then
+          if git diff --quiet manifest.json conference-info.json acm-papers.json; then
             echo "No generated-data changes"
           else
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add manifest.json conference-info.json
+            git add manifest.json conference-info.json acm-papers.json
             git commit -m "Auto-refresh conference data"
             git push
           fi
