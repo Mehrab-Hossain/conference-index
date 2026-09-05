@@ -581,7 +581,9 @@ let PAPERS = [];
 const VENUE_LABELS = {
   acl:'ACL', emnlp:'EMNLP', naacl:'NAACL', findings:'Findings', eacl:'EACL',
   coling:'COLING', conll:'CoNLL', wmt:'WMT', semeval:'SemEval', starsem:'*SEM',
-  tacl:'TACL', iwslt:'IWSLT', lrec:'LREC', ijcnlp:'AACL-IJCNLP', arabicnlp:'ArabicNLP'
+  tacl:'TACL', iwslt:'IWSLT', lrec:'LREC', ijcnlp:'AACL-IJCNLP', arabicnlp:'ArabicNLP',
+  chi:'ACM CHI', iui:'ACM IUI', cscw:'ACM CSCW', hcomp:'AAAI HCOMP', facct:'ACM FAccT',
+  aies:'AIES', aamas:'AAMAS', neurips:'NeurIPS', icml:'ICML', iclr:'ICLR', aaai:'AAAI', ijcai:'IJCAI'
 };
 function venueLabel(p){
   if(p.v === 'findings') return 'Findings of ' + (VENUE_LABELS[p.tr] || p.tr.toUpperCase());
@@ -1399,6 +1401,18 @@ async function fetchConferenceInfo(){
   return data.venues || {};
 }
 
+async function fetchAcmPapers(){
+  // Same-origin file, generated server-side by the GitHub Action (see
+  // scripts/update_manifest.py -> refresh_dblp_papers). Not a live
+  // client-side fetch to DBLP -- DBLP doesn't allow that from a
+  // browser. This file just happens to live in the same repo, so
+  // reading it is a normal same-origin request, refreshed daily.
+  const res = await fetch('./acm-papers.json', { cache:'no-store' });
+  if(!res.ok) throw new Error('acm papers fetch failed: ' + res.status);
+  const data = await res.json();
+  return data.papers || [];
+}
+
 function parseCollectionXML(xmlText){
   const doc = new DOMParser().parseFromString(xmlText, 'text/xml');
   const root = doc.documentElement;
@@ -1467,29 +1481,80 @@ function setLoadingState(text, visible){
   el.style.display = visible ? 'block' : 'none';
 }
 
+function collectionYear(collId){
+  const m = /^(\d{4})\./.exec(collId);
+  return m ? parseInt(m[1], 10) : 0;
+}
+
+// Runs async tasks with a concurrency cap instead of firing everything
+// at once -- with 400+ venues tracked, unbounded parallel fetches would
+// queue behind the browser's per-origin connection limit anyway, so
+// capping it keeps behavior predictable and lets us control ordering.
+async function runWithConcurrency(items, limit, worker){
+  let index = 0;
+  async function next(){
+    while(index < items.length){
+      const i = index++;
+      await worker(items[i], i);
+    }
+  }
+  const runners = Array.from({length: Math.min(limit, items.length)}, next);
+  await Promise.all(runners);
+}
+
 async function loadAllPapers(forceRefresh){
   setLoadingState('Loading conference data\u2026', true);
   document.getElementById('refreshBtn').disabled = true;
   let manifest;
+  let acmPapers = [];
   try{
     const loaded = await Promise.all([
       fetchManifest(),
       fetchConferenceInfo().catch(error => {
         console.warn('Official conference information unavailable', error);
         return {};
+      }),
+      fetchAcmPapers().catch(error => {
+        console.warn('ACM/ML paper feed unavailable', error);
+        return [];
       })
     ]);
     manifest = loaded[0];
     OFFICIAL_CONFERENCE_INFO = loaded[1];
+    acmPapers = loaded[2];
   } catch(e){
     setLoadingState('Could not load the venue manifest. Check your connection and reload.', true);
     document.getElementById('refreshBtn').disabled = false;
     return;
   }
 
-  const all = [];
+  // Newest years first: the page becomes useful (recent papers, live
+  // keyword trends) well before every historical venue has finished
+  // loading in the background.
+  const collections = manifest.collections.slice().sort((a,b) => collectionYear(b) - collectionYear(a));
+
+  const all = acmPapers.slice();
   let done = 0;
-  await Promise.all(manifest.collections.map(async (collId) => {
+  let lastRenderAt = 0;
+  let firstRenderDone = false;
+
+  function refreshDerivedState(){
+    PAPERS = all.map((p,i)=>{
+      const record = {...p, id:i};
+      record._search = buildSearchDocument(record);
+      return record;
+    });
+    ALL_VENUES = uniqueSorted(PAPERS.map(p=>p.v));
+    ALL_YEARS = uniqueSorted(PAPERS.map(p=>p.y)).sort();
+    ALL_TRACKS = uniqueSorted(PAPERS.map(p=>p.tr));
+    renderChecks('venueChecks', ALL_VENUES, 'venues', v=>VENUE_LABELS[v]||v);
+    renderChecks('yearChecks', ALL_YEARS, 'years', v=>v);
+    renderChecks('trackChecks', ALL_TRACKS, 'tracks', v=>v);
+    renderStats();
+    renderAll();
+  }
+
+  await runWithConcurrency(collections, 12, async (collId) => {
     try{
       const records = await fetchCollection(collId, forceRefresh);
       all.push(...records);
@@ -1497,23 +1562,23 @@ async function loadAllPapers(forceRefresh){
       console.warn('Skipped ' + collId, e);
     }
     done++;
-    setLoadingState('Loading conference data\u2026 (' + done + '/' + manifest.collections.length + ' venues)', true);
-  }));
-
-  PAPERS = all.map((p,i)=>{
-    const record = {...p, id:i};
-    record._search = buildSearchDocument(record);
-    return record;
+    setLoadingState(
+      'Loading conference data\u2026 (' + done + '/' + collections.length + ' venues' +
+      (firstRenderDone ? ' \u2014 browse below while the rest loads' : '') + ')',
+      true
+    );
+    // Progressive rendering: show results as soon as we have some, then
+    // refresh at most a few times a second so 400+ completions don't
+    // trigger 400+ full re-renders.
+    const now = Date.now();
+    if(!firstRenderDone || now - lastRenderAt > 400 || done === collections.length){
+      refreshDerivedState();
+      lastRenderAt = now;
+      firstRenderDone = true;
+    }
   });
-  ALL_VENUES = uniqueSorted(PAPERS.map(p=>p.v));
-  ALL_YEARS = uniqueSorted(PAPERS.map(p=>p.y)).sort();
-  ALL_TRACKS = uniqueSorted(PAPERS.map(p=>p.tr));
 
-  renderChecks('venueChecks', ALL_VENUES, 'venues', v=>VENUE_LABELS[v]||v);
-  renderChecks('yearChecks', ALL_YEARS, 'years', v=>v);
-  renderChecks('trackChecks', ALL_TRACKS, 'tracks', v=>v);
-  renderStats();
-  renderAll();
+  refreshDerivedState();
 
   const updatedEl = document.getElementById('lastUpdated');
   if(updatedEl){
