@@ -449,7 +449,7 @@
     "2026.trustnlp",
     "2026.vardial"
   ],
-  "generated_at": "2026-10-02T11:57:30.490897+00:00",
+  "generated_at": "2026-10-03T11:10:53.010636+00:00",
   "source": "https://github.com/acl-org/acl-anthology/tree/master/data/xml",
   "tracked_venue_prefixes": [
     "acl",
