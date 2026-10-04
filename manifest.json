@@ -416,6 +416,7 @@
     "2025.wmt",
     "2025.wnut",
     "2026.acl",
+    "2026.aimecon",
     "2026.americasnlp",
     "2026.amta",
     "2026.argmining",
@@ -449,7 +450,7 @@
     "2026.trustnlp",
     "2026.vardial"
   ],
-  "generated_at": "2026-10-03T11:10:53.010636+00:00",
+  "generated_at": "2026-10-04T11:50:25.824431+00:00",
   "source": "https://github.com/acl-org/acl-anthology/tree/master/data/xml",
   "tracked_venue_prefixes": [
     "acl",
