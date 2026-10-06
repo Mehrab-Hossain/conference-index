@@ -51,9 +51,14 @@ TRACKED_VENUE_PREFIXES = [
     "genbench", "sdp", "cmcl", "law",
 ]
 
-# Only track collections from this year onward, to keep the dashboard's
-# scope (and the amount of data a visitor's browser has to fetch) bounded.
-MIN_YEAR = datetime.now(timezone.utc).year - 9
+# Track EVERY venue code in the ACL Anthology (auto-discovers brand-new
+# workshops too). The list above is kept for reference and is used only
+# when TRACK_ALL_VENUES is False.
+TRACK_ALL_VENUES = True
+
+# Window: the current year plus the 3 before it (= last 4 years).
+# Example in 2026: 2023, 2024, 2025, 2026.
+MIN_YEAR = datetime.now(timezone.utc).year - 3
 
 COLLECTION_RE = re.compile(r"^(\d{4})\.([a-z0-9]+)$")
 
@@ -283,6 +288,7 @@ def refresh_conference_info(output_path):
         handle.write("\n")
 
 
+
 def list_repo_xml_files():
     """List every file in acl-org/acl-anthology's data/xml directory via
     the GitHub Trees API (one call, not one call per file)."""
@@ -311,7 +317,7 @@ def matching_collections(xml_paths):
         if not m:
             continue
         year, venue = int(m.group(1)), m.group(2)
-        if year >= MIN_YEAR and venue in TRACKED_VENUE_PREFIXES:
+        if year >= MIN_YEAR and (TRACK_ALL_VENUES or venue in TRACKED_VENUE_PREFIXES):
             collections.append(stem)
     return sorted(collections)
 
