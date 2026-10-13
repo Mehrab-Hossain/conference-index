@@ -543,6 +543,7 @@
     "2026.healing",
     "2026.htres",
     "2026.iaai",
+    "2026.icnlsp",
     "2026.indor",
     "2026.isa",
     "2026.iscls",
@@ -617,7 +618,7 @@
     "2026.wassa",
     "2026.wildre"
   ],
-  "generated_at": "2026-10-12T14:32:56.127155+00:00",
+  "generated_at": "2026-10-13T13:38:59.893609+00:00",
   "source": "https://github.com/acl-org/acl-anthology/tree/master/data/xml",
   "tracked_venue_prefixes": [
     "acl",
