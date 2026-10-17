@@ -392,6 +392,7 @@
     "2025.iwslt",
     "2025.jclib",
     "2025.jeptalnrecital",
+    "2025.jlcl",
     "2025.justnlp",
     "2025.knowledgenlp",
     "2025.knowllm",
@@ -618,7 +619,7 @@
     "2026.wassa",
     "2026.wildre"
   ],
-  "generated_at": "2026-10-16T10:47:51.802816+00:00",
+  "generated_at": "2026-10-17T10:12:43.345867+00:00",
   "source": "https://github.com/acl-org/acl-anthology/tree/master/data/xml",
   "tracked_venue_prefixes": [
     "acl",
