@@ -622,6 +622,7 @@
     "2026.realm",
     "2026.resourceful",
     "2026.retroeval",
+    "2026.rocling",
     "2026.salma",
     "2026.scil",
     "2026.semeval",
@@ -661,7 +662,7 @@
     "2026.woah",
     "2026.wslp"
   ],
-  "generated_at": "2026-11-23T17:29:25.109253+00:00",
+  "generated_at": "2026-11-24T17:01:17.818426+00:00",
   "source": "https://github.com/acl-org/acl-anthology/tree/master/data/xml",
   "tracked_venue_prefixes": [
     "acl",
